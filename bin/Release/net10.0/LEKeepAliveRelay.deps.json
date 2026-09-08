@@ -1,0 +1,77 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "LEKeepAliveRelay/1.0.0": {
+        "dependencies": {
+          "NAudio.Wasapi": "3.0.1"
+        },
+        "runtime": {
+          "LEKeepAliveRelay.dll": {}
+        }
+      },
+      "NAudio.Core/3.0.1": {
+        "dependencies": {
+          "System.Numerics.Tensors": "9.0.0"
+        },
+        "runtime": {
+          "lib/net9.0/NAudio.Core.dll": {
+            "assemblyVersion": "3.0.1.0",
+            "fileVersion": "3.0.1.0"
+          }
+        }
+      },
+      "NAudio.Wasapi/3.0.1": {
+        "dependencies": {
+          "NAudio.Core": "3.0.1"
+        },
+        "runtime": {
+          "lib/net9.0/NAudio.Wasapi.dll": {
+            "assemblyVersion": "3.0.1.0",
+            "fileVersion": "3.0.1.0"
+          }
+        }
+      },
+      "System.Numerics.Tensors/9.0.0": {
+        "runtime": {
+          "lib/net9.0/System.Numerics.Tensors.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.24.52809"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "LEKeepAliveRelay/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "NAudio.Core/3.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-3fJ6UnkoiNBeeczKd9OozvcE85FvtyYCykmfzEbFW0uB0uT2+keKdconUGkz9qYlhaq1RJDTFptXOooQBYLijA==",
+      "path": "naudio.core/3.0.1",
+      "hashPath": "naudio.core.3.0.1.nupkg.sha512"
+    },
+    "NAudio.Wasapi/3.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-1j8+HaeAJXFaDaIeVpnaahwAa3ZvMog2bswgmY1JSDysAbeehRx+PIeC0AbNyXZr5gvhu9PfOPD7xwuAEKJcbw==",
+      "path": "naudio.wasapi/3.0.1",
+      "hashPath": "naudio.wasapi.3.0.1.nupkg.sha512"
+    },
+    "System.Numerics.Tensors/9.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-hyJB4UlpAi19Xr9AXzu2NuagKC4lPfHObNMEAA0HmqFz2rX7wKgzeYzO/jM/eBHDhnUGFFEjk5cOoJaxqg5J4A==",
+      "path": "system.numerics.tensors/9.0.0",
+      "hashPath": "system.numerics.tensors.9.0.0.nupkg.sha512"
+    }
+  }
+}
