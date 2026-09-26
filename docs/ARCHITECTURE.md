@@ -260,20 +260,37 @@ The PCM boundary currently includes a temporary one-sided guard against positive
 
 It is not a PLL, ASRC, clock estimator, or final synchronization design.
 
+The guard controls **post-render residual fill**, because the intended retained cushion is 10 ms. A healthy pre-render fill can naturally be about 20 ms: 10 ms retained cushion plus the current ~10 ms render request.
+
+Current control band:
+
+```text
+target residual       10 ms
+gradual trim stops    11 ms
+gradual trim starts   12 ms
+hard recenter         20 ms
+physical capacity     80 ms
+```
+
 Normal correction order:
 
 ```text
 source-declared silence available
-    => suppress buffered silent frames above target cushion
+    => suppress already-accumulated silent excess above the 10 ms target
 
-continuous audio + fill above high-water band
-    => discard 1 stereo frame every 4 render callbacks
-    => stop gradual trim after returning below low-water band
+after each render read:
+    residual >= 12 ms
+        => enter gradual trim
 
-fill approaches ring capacity
-    => emergency hard trim to high-water band
+while gradual trim active and residual > 11 ms
+    => discard 1 complete stereo frame every 8 render callbacks
+
+residual >= 20 ms
+    => hard recenter directly to the 10 ms target
 ```
 
-The goal is operational comfort during long daily runs: prevent the ring from remaining pinned at capacity while keeping the later full Timing controller architecturally separate.
+The 80 ms ring capacity is safety headroom only and is not part of the normal latency/control budget.
+
+The goal is operational comfort during long daily runs: prevent positive drift from increasing retained queue latency or eventually pinning the ring at capacity while keeping the later full Timing controller architecturally separate.
 
 Intentional drift-correction frames are tracked separately from actual runtime audio/silent drops.
