@@ -1,417 +1,101 @@
 # LE Audio Relay
 
-**A Windows tray relay for keeping Bluetooth LE Audio playback alive, recoverable, and observable.**
+**A small Windows tray relay that keeps a Bluetooth LE Audio render stream alive and automatically rebuilds it across reconnects and sleep/resume.**
 
 [![Platform](https://img.shields.io/badge/platform-Windows%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows/windows-11)
-[![Runtime](https://img.shields.io/badge/.NET-10-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 ![Status](https://img.shields.io/badge/status-V0.21%20daily%20test-orange)
 ![Audio](https://img.shields.io/badge/audio-Bluetooth%20LE%20Audio-0A66C2)
 
-[Getting started](docs/GETTING_STARTED.md) · [Why this exists](docs/WHY_THIS_EXISTS.md) · [How it works](docs/HOW_IT_WORKS.md) · [Validation](docs/VALIDATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [中文](README.zh-CN.md)
+[中文](README.zh-CN.md) · [Getting started](docs/GETTING_STARTED.md) · [Why this exists](docs/WHY_THIS_EXISTS.md) · [How it works](docs/HOW_IT_WORKS.md) · [Validation](docs/VALIDATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
 ## Download
 
 **[Download LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
 
-Windows x64 · self-contained · single-file · ~50 MB · no separate .NET runtime required
-
-[Release notes](https://github.com/STanJK/LE-Audio-Relay/releases/tag/v0.21.0-daily.2)
+Windows x64 · self-contained · single EXE · ~50 MB · no separate .NET runtime required
 
 > [!WARNING]
-> This is a **daily-test prerelease**, not a stable release. Full multi-day validation is still in progress.
+> **Daily Test Candidate 2 is a prerelease and is currently hard-coded for Samsung Galaxy Buds3 Pro.**
 >
-> **Daily Test Candidate 2 is currently hard-coded for Samsung Galaxy Buds3 Pro.** The prebuilt EXE looks for exactly one active render endpoint whose friendly name contains `Galaxy Buds3 Pro`. Other LE Audio devices will not be selected by this binary yet.
-
-> [!IMPORTANT]
-> **Current status: V0.21 Daily Test Candidate 2.**
->
-> The current architecture is usable enough for sustained daily testing, but full multi-day validation is still in progress. It is **not yet a stable release**. A self-contained Windows x64 Daily Test binary is now available above.
-
-> [!NOTE]
-> **Development note — VibeFactory integration**
->
-> LE Audio Relay is being actively developed with an embedded integration to **VibeFactory**, a separate development system/library that is currently **private** and planned for a separate public release once it reaches that stage.
->
-> VibeFactory is **not required to build or run LE Audio Relay**. This README intentionally keeps the mention high-level because VibeFactory has not reached its own public-documentation milestone yet — not because the integration is treated as confidential.
-
-LE Audio Relay is a user-mode Windows audio relay built for a specific class of Bluetooth LE Audio stability problems observed during real daily use.
-
-Instead of making the LE Audio earbuds the Windows default output directly, normal applications render to a separate physical output endpoint. LE Audio Relay captures that system mix with **Process Loopback**, forwards it to the LE Audio endpoint, and keeps the destination render stream continuously alive — including during silence, when it renders real zero PCM.
-
-The current validated target is **Samsung Galaxy Buds3 Pro** on Windows 11. **The Daily 2 prebuilt binary is also hard-coded to that target name.** General endpoint selection is not implemented in this release.
-
-Advanced users can already retarget the source build by changing `DestinationMatch` in `Settings/RelayConfiguration.cs` and rebuilding. The internal worker's `--dest` argument is not a supported standalone user CLI; it depends on the supervisor's private pipe/generation arguments.
-
-A simple first-run endpoint selector is planned for the next candidate.
-
----
-
-## Why this exists
-
-Windows 11 has native Bluetooth LE Audio support, but support depends on the complete PC hardware and driver stack. Microsoft explicitly notes that not every Windows 11 PC with Bluetooth LE supports LE Audio; compatible radio/audio hardware and manufacturer-provided LE Audio drivers are required.
-
-Microsoft's current user-facing check is:
-
-**Settings → Bluetooth & devices → Devices → Use LE Audio when available**
-
-If that option is missing, Windows does not currently consider the PC LE Audio capable.
-
-On our test systems, we observed a separate runtime problem: after silence or stream teardown/reconstruction, the LE Audio destination could sometimes return in an abnormal stereo state — subjectively much wider, strongly separated, and hollow on mono material. Reconnecting the device or rebuilding the route could restore normal playback.
-
-The first successful workaround was simple:
-
-> **Do not let the final LE Audio render stream go away.**
-
-Keeping one render stream alive and feeding **real zero PCM during silence** prevented the persistent failure from reproducing in our daily path. LE Audio Relay turns that workaround into a supervised tray application with reconnect, sleep/resume recovery, logging, and a replaceable audio-route generation.
-
-Read the full background: **[Why this exists](docs/WHY_THIS_EXISTS.md)**.
-
----
-
-## What it does
-
-- **Keeps the LE Audio destination hot**  
-  The final shared-mode render stream stays open continuously and receives zero PCM during silence.
-
-- **Uses Windows Process Loopback**  
-  Captures ordinary Windows render streams while excluding the relay worker process tree, so the relay does not recursively capture itself.
-
-- **Recovers from endpoint disconnect/reconnect**  
-  Core Audio notifications wake the supervisor; fresh endpoint enumeration decides what is actually available.
-
-- **Treats sleep/resume as a route-generation boundary**  
-  Any route created before Windows suspend is considered stale after resume and is rebuilt.
-
-- **Runs the audio route in a disposable worker process**  
-  One worker PID owns one complete audio generation, including capture, buffering, render, and route-local state.
-
-- **Supports multiple Windows audio stream categories**  
-  GameEffects, GameMedia, Media, and Default/unset are available from the tray. GameEffects is the current daily default.
-
-- **Keeps a low-volume lifecycle journal**  
-  Logs app, endpoint, power, worker-generation, mode, and restart transitions without heartbeat/ring-warning spam.
-
-- **Includes a temporary positive-drift guard**  
-  Keeps the retained PCM queue near the 10 ms target cushion during long runs. This is operational mitigation, not finished clock synchronization.
-
----
-
-## How it works
-
-```mermaid
-flowchart LR
-    Apps["Windows applications"]
-    Sink["Windows default / sacrificial render endpoint"]
-    Capture["Process Loopback capture<br/>exclude Relay worker tree"]
-    Ring["PCM relay boundary"]
-    Buds["Persistent LE Audio render"]
-    Supervisor["Tray / Supervisor"]
-    Worker["Disposable route worker"]
-
-    Apps --> Sink
-    Apps -. "render streams also visible to Process Loopback" .-> Capture
-    Capture --> Ring
-    Ring --> Buds
-
-    Supervisor -->|"spawn / replace"| Worker
-    Worker -. owns .-> Capture
-    Worker -. owns .-> Ring
-    Worker -. owns .-> Buds
-```
-
-The important detail is that the **LE Audio endpoint is not the normal Windows default output**.
-
-Applications render normally to a separate Windows default endpoint such as active NVIDIA HDMI or Realtek. Separately, Process Loopback captures render streams system-wide while excluding the Relay worker process tree; it is **not bound to the sacrificial endpoint itself**. The worker then continuously renders the captured PCM to the LE Audio destination.
-
-This creates two useful properties:
-
-1. the relay can keep the LE Audio endpoint open independently of application silence;
-2. the router can destroy and recreate the entire destination generation without restarting every application using audio.
-
-More detail: **[How it works](docs/HOW_IT_WORKS.md)**.
-
----
+> The prebuilt EXE looks for exactly one active render endpoint whose name contains `Galaxy Buds3 Pro`. General endpoint selection is planned for the next candidate.
 
 ## Quick start
 
-### Requirements
+1. Make sure Windows 11 LE Audio works and **Use LE Audio when available** is enabled.
+2. Connect **Galaxy Buds3 Pro**.
+3. Set the Windows default output to a **different active render endpoint** such as NVIDIA HDMI or Realtek.
+   - Do **not** use the Buds as the Windows default output.
+   - Do **not** use CABLE Input for the current baseline.
+4. Run `LEAudioRelay.exe`.
 
-| Requirement | Current expectation |
-|---|---|
-| OS | Windows 11 x64 |
-| LE Audio | PC and earbuds must both support Bluetooth LE Audio |
-| Windows LE Audio setting | **Use LE Audio when available** should be present and enabled |
-| .NET | .NET 10 SDK for source builds |
-| Destination | Currently validated with **Galaxy Buds3 Pro** |
-| Default Windows output | A separate physical render endpoint, **not** the Buds and not VB-CABLE |
-| Spatial Sound | Recommended off for the current validation baseline |
-
-> [!NOTE]
-> Windows LE Audio support is hardware/driver dependent. Bluetooth LE capability alone does not imply LE Audio capability.
-
-### Build
-
-```powershell
-git clone https://github.com/STanJK/LE-Audio-Relay.git
-cd LE-Audio-Relay
-
-dotnet build .\LEAudioRelay.csproj
-```
-
-Run:
-
-```powershell
-.\bin\Debug\net10.0-windows\LEAudioRelay.exe
-```
-
-The application runs from the Windows system tray.
-
-### Before starting the route
-
-1. Pair and connect the LE Audio earbuds.
-2. Make sure Windows is actually using the LE Audio endpoint.
-3. Set the Windows default output to a **separate physical sink** such as active HDMI or Realtek.
-4. Start LE Audio Relay.
-5. Play audio normally.
-
-The tray should reach:
+A healthy tray state looks like:
 
 ```text
 Running | Backend gen: N | Mode: GameEffects
 ```
 
-Full setup instructions: **[Getting started](docs/GETTING_STARTED.md)**.
+LE Audio Relay automatically handles endpoint disconnect/reconnect and rebuilds the route after Windows resume.
 
----
+## Advanced users: other LE Audio devices
 
-## Tray controls
+Daily 2 can already be retargeted from source.
 
-| Control | Meaning |
-|---|---|
-| **Mode → GameEffects** | Current default; empirically preferred in this project |
-| **Mode → GameMedia** | Windows GameMedia render category |
-| **Mode → Media** | Windows Media render category |
-| **Mode → Default / unset** | Do not explicitly set a category |
-| **Restart audio route** | Destroy and recreate the current worker generation |
-| **Exit** | Stop routing and exit the tray application |
+Check present audio endpoints:
 
-There is intentionally no separate **Router enabled** or **Auto reconnect** switch.
-
-The product model is:
-
-```text
-application alive
-    = routing intent
+```powershell
+Get-PnpDevice -Class AudioEndpoint -PresentOnly |
+    Select-Object Status,FriendlyName,InstanceId
 ```
 
----
-
-## Lifecycle behavior
-
-### Earbuds disconnected
+Edit:
 
 ```text
-Running
-→ endpoint disappears
-→ worker stops
-→ WaitingForEndpoint
-→ zero background reconnect workers
+Settings/RelayConfiguration.cs
 ```
 
-### Earbuds reconnect
+Change:
+
+```csharp
+public string DestinationMatch { get; set; } =
+    "Galaxy Buds3 Pro";
+```
+
+to a unique substring matching your target endpoint, then build:
+
+```powershell
+dotnet build .\LEAudioRelay.csproj -c Release
+```
+
+The internal worker `--dest` argument is not a supported standalone user CLI in Daily 2.
+
+## What it does
+
+Normal apps render to the current Windows default endpoint. Separately, **Process Loopback** captures render streams while excluding the Relay worker process tree, then forwards the PCM to a persistent LE Audio render stream.
+
+During silence, the destination stream stays alive with real zero PCM. This is the core workaround behind the project.
+
+Current primary validation target: **Galaxy Buds3 Pro on Windows 11 LE Audio**.
+
+## Status
+
+V0.21 Daily Test Candidate 2 is under multi-day validation. The current focus is sleep/resume, reconnects, long-running playback, and the provisional positive-drift guard.
+
+**VibeFactory** is already used in the real development workflow. It is currently private and planned for a separate public release; it is not required to build or run LE Audio Relay.
+
+## More
+
+- [Getting started](docs/GETTING_STARTED.md)
+- [Why this exists](docs/WHY_THIS_EXISTS.md)
+- [How it works](docs/HOW_IT_WORKS.md)
+- [Validation status](docs/VALIDATION.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Contributing / bug reports](CONTRIBUTING.md)
+
+If reporting a problem, include the Windows build, Bluetooth controller/driver, headset model, reproduction steps, and the relevant lifecycle log from:
 
 ```text
-Core Audio topology change
-→ re-enumerate endpoint reality
-→ endpoint available
-→ start one fresh worker generation
-→ Running
+%LOCALAPPDATA%\LEAudioRelay\logs\
 ```
 
-### Windows sleep/resume
-
-```text
-Suspend
-→ record suspended power state
-
-Resume
-→ PowerRevision + 1
-→ old worker generation becomes stale
-→ re-probe endpoints
-→ create a fresh generation if eligible
-```
-
----
-
-## Timing and buffering
-
-The relay currently uses:
-
-| Parameter | Current value |
-|---|---:|
-| Format | 48 kHz / Float32 / stereo |
-| Capture buffer | 10 ms |
-| Target retained cushion | 10 ms |
-| Startup hold limit | 40 ms |
-| Physical ring capacity | 80 ms |
-
-The **80 ms ring is safety storage, not the normal latency target**.
-
-The current provisional drift guard regulates **post-render residual fill** around the 10 ms target:
-
-```text
-target residual       10 ms
-gradual trim stops    11 ms
-gradual trim starts   12 ms
-hard recenter         20 ms
-physical capacity     80 ms
-```
-
-This is intentionally temporary. A proper clock-control design remains future work.
-
----
-
-## Validation status
-
-| Area | Status |
-|---|---|
-| Real Process Loopback → Buds route | ✅ Validated |
-| Persistent zero keepalive | ✅ Validated in daily use |
-| Endpoint disconnect → zero worker churn | ✅ Validated |
-| Endpoint reconnect → fresh generation | ✅ Validated |
-| Mode switch → one generation replacement | ✅ Validated |
-| Invalid default output → TopologyBlocked | ✅ Validated |
-| Windows suspend/resume | 🧪 Daily validation in progress |
-| Multi-hour / multi-day stability | 🧪 Daily validation in progress |
-| Provisional drift guard audibility | 🧪 Daily validation in progress |
-| Galaxy Buds3 Pro | ✅ Current primary target |
-| Other LE Audio earbuds/headsets | ⚪ Not yet claimed |
-| Microphone forwarding | ❌ Out of scope |
-| Full clock synchronization | ❌ Not implemented yet |
-
-See **[Validation](docs/VALIDATION.md)** for exactly what has and has not been established.
-
----
-
-## Lifecycle logs
-
-Low-volume lifecycle logs are written to:
-
-```text
-%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
-```
-
-Examples of persisted events:
-
-```text
-APP_START
-POWER_SUSPEND
-POWER_RESUME
-ENDPOINT_AVAILABLE
-ENDPOINT_ABSENT
-TOPOLOGY_BLOCKED
-WORKER_RUNNING
-WORKER_REPLACE
-WORKER_EXIT
-MODE_CHANGE
-MANUAL_RESTART
-```
-
-The persistent log intentionally does **not** contain heartbeat spam, ring occupancy warnings, overflow warnings, or per-second timing telemetry.
-
----
-
-## What this project is not
-
-LE Audio Relay is **not**:
-
-- a Bluetooth driver;
-- a replacement LE Audio host stack;
-- an LC3 codec implementation;
-- a firmware patch for earbuds;
-- a microphone forwarding solution;
-- a generic promise to fix every Windows Bluetooth problem;
-- a completed low-latency or clock-synchronization framework.
-
-It is a focused user-mode routing and lifecycle experiment built around one concrete Windows LE Audio failure mode.
-
----
-
-## Windows LE Audio context
-
-Useful Microsoft references:
-
-- [Check whether a Windows 11 device supports Bluetooth LE Audio](https://support.microsoft.com/en-us/windows/hardware/bluetooth/check-if-a-windows-11-device-supports-bluetooth-low-energy-audio)
-- [Bluetooth Low Energy (LE) Audio architecture for Windows drivers](https://learn.microsoft.com/en-us/windows-hardware/drivers/bluetooth/bluetooth-low-energy-audio)
-- [Application loopback audio capture sample](https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/)
-- [PROCESS_LOOPBACK_MODE](https://learn.microsoft.com/en-us/windows/win32/api/audioclientactivationparams/ne-audioclientactivationparams-process_loopback_mode)
-- [Windows audio stream categories](https://learn.microsoft.com/en-us/windows/win32/api/audiosessiontypes/ne-audiosessiontypes-audio_stream_category)
-
-The project tries to keep two things separate:
-
-- **Microsoft-documented platform behavior**
-- **observations from this project's own test systems**
-
-That distinction is important when reporting LE Audio issues publicly.
-
----
-
-## Documentation
-
-| Document | Purpose |
-|---|---|
-| [Getting started](docs/GETTING_STARTED.md) | Requirements, build, first run, daily operation |
-| [Why this exists](docs/WHY_THIS_EXISTS.md) | Windows LE Audio background and observed failure mode |
-| [How it works](docs/HOW_IT_WORKS.md) | Process Loopback, persistent render, lifecycle, timing |
-| [Validation](docs/VALIDATION.md) | What is proven, in progress, or unverified |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Common startup and lifecycle problems |
-| [Architecture](docs/ARCHITECTURE.md) | Current internal ownership and process model |
-| [Project history](docs/PROJECT_HISTORY.md) | V0.1 → Round4 → V0.20.x → V0.21 candidate |
-| [Community / Microsoft publishing](docs/COMMUNITY_AND_MICROSOFT.md) | How to turn the evidence into articles and platform reports |
-| [Public release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md) | What remains before formal V0.21 |
-| [Architecture decisions](docs/decisions/) | ADRs for worker isolation, endpoint lifecycle, power, timing |
-
----
-
-## Contributing
-
-Bug reports and test results are especially useful if they include:
-
-- Windows build;
-- Bluetooth controller and driver version;
-- headset/earbuds model and firmware if known;
-- whether **Use LE Audio when available** is present;
-- exact reproduction steps;
-- whether reconnect or worker restart clears the problem;
-- the relevant lifecycle log excerpt.
-
-See **[CONTRIBUTING.md](CONTRIBUTING.md)**.
-
----
-
-## Project status and release policy
-
-The current daily candidate is intentionally frozen while long-run validation proceeds.
-
-If a runtime defect is found:
-
-```text
-frozen daily candidate
-    stays unchanged
-
-main
-    receives the fix
-
-new candidate
-    is frozen if another full validation round is needed
-```
-
-Formal **V0.21** is reserved for a baseline that completes the current daily-use validation round.
-
----
-
-## License
-
-An open-source license has **not yet been selected for the public release**.
-
-Until a license file is added, normal copyright rules apply even if the repository is publicly visible. Selecting and adding the project license is part of the public-release checklist.
+> No open-source license has been selected yet.
