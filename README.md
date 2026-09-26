@@ -1,6 +1,6 @@
 # LE Audio Relay
 
-**A small Windows tray relay that keeps a Bluetooth LE Audio render stream alive and automatically rebuilds it across reconnects and sleep/resume.**
+**A Windows tray relay for persistent Bluetooth LE Audio playback with comparatively low added latency, automatic reconnect, and sleep/resume recovery.**
 
 [![Platform](https://img.shields.io/badge/platform-Windows%2011-0078D4?logo=windows11&logoColor=white)](https://www.microsoft.com/windows/windows-11)
 ![Status](https://img.shields.io/badge/status-V0.21%20daily%20test-orange)
@@ -8,6 +8,50 @@
 
 [中文](README.zh-CN.md) · [Getting started](docs/GETTING_STARTED.md) · [Why this exists](docs/WHY_THIS_EXISTS.md) · [How it works](docs/HOW_IT_WORKS.md) · [Validation](docs/VALIDATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
+## What it does
+
+- Keeps the final LE Audio render stream continuously alive, including real zero PCM during silence.
+- Captures normal Windows render streams with Process Loopback while excluding the Relay worker itself.
+- Automatically rebuilds the route after endpoint reconnect and Windows sleep/resume.
+- Adds some latency compared with direct LE Audio, while our current E2E estimate remains below typical classic AAC/SBC A2DP ranges.
+
+## Latency — closer to LE Audio than old-school A2DP
+
+These numbers are **comparative acoustic measurements**, not calibrated absolute event-to-ear E2E latency.
+
+| Path | Measured median |
+|---|---:|
+| Direct Realtek 3.5 mm → mic | **60.10 ms** |
+| Relay → Realtek 3.5 mm → mic | **147.61 ms** |
+| Direct Buds3 Pro LE, hot stream → mic | **210.56 ms** |
+| Relay → Buds3 Pro LE, hot stream → mic | **316.71 ms** |
+
+In the same measurement coordinate, Relay added about **87.5 ms** over direct Realtek and **106.2 ms** over direct Buds3 Pro LE.
+
+| Path | Rough E2E estimate |
+|---|---:|
+| Native / direct LE Audio | ~80–120 ms |
+| **LE Audio Relay** | **~120–150 ms** |
+| Classic Bluetooth AAC | ~150–200 ms |
+| Classic Bluetooth SBC | ~180–250 ms |
+
+> These E2E ranges are **speculative engineering estimates, not measurements and not codec specifications**. Actual latency depends on Windows, controller/driver, device buffering, codec/QoS, and workload.
+
+<details>
+<summary>Comparative test method and raw results</summary>
+
+We used a generated chirp/correlation signal, acoustic capture with a USB microphone, and cross-correlation to locate the received signal.
+
+The absolute coordinate therefore includes fixed USB mic / ADC and acoustic-path delay. The useful result is the **difference between paths measured with the same setup**.
+
+- Relay → Buds3 Pro early 5-run series: 331.29, 322.82, 321.66, 316.66, 320.11 ms; median 321.66 ms.
+- Relay → Buds3 Pro hot steady-state: 315.90–317.25 ms; median 316.71 ms.
+- Direct Realtek 10-run series: 59.24, 60.50, 60.00, 60.17, 60.02, 60.27, 60.08, 60.12, 60.11, 60.08 ms; median 60.10 ms.
+- Relay → Realtek hot: 138.34–157.59 ms; median 147.61 ms.
+- Direct Buds3 Pro hot: 209.63–210.91 ms; median 210.56 ms.
+- Direct Buds cold-start showed about 350.58 ms of startup overhead; excluded from the steady-state table.
+
+</details>
 ## Download
 
 **[Download LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
@@ -67,20 +111,6 @@ dotnet build .\LEAudioRelay.csproj -c Release
 ```
 
 The internal worker `--dest` argument is not a supported standalone user CLI in Daily 2.
-
-## What it does
-
-Normal apps render to the current Windows default endpoint. Separately, **Process Loopback** captures render streams while excluding the Relay worker process tree, then forwards the PCM to a persistent LE Audio render stream.
-
-During silence, the destination stream stays alive with real zero PCM. This is the core workaround behind the project.
-
-Current primary validation target: **Galaxy Buds3 Pro on Windows 11 LE Audio**.
-
-## Status
-
-V0.21 Daily Test Candidate 2 is under multi-day validation. The current focus is sleep/resume, reconnects, long-running playback, and the provisional positive-drift guard.
-
-**VibeFactory** is already used in the real development workflow. It is currently private and planned for a separate public release; it is not required to build or run LE Audio Relay.
 
 ## More
 
