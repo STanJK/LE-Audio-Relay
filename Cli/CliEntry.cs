@@ -1,9 +1,13 @@
+using LEAudioRouter.Host;
+
 namespace LEAudioRouter.Cli;
 
 internal static class CliEntry
 {
     public static int Run(string[] args)
     {
+        ConsoleBridge.AttachToParent();
+
         if (args.Any(x => x.Equals("--status", StringComparison.OrdinalIgnoreCase)))
         {
             Console.WriteLine(

@@ -8,6 +8,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly DesiredRouterState _desired = new();
     private readonly BackendSupervisor _supervisor;
+    private readonly Control _uiDispatcher;
+    private readonly ContextMenuStrip _menu;
     private readonly NotifyIcon _notifyIcon;
 
     private readonly ToolStripMenuItem _statusItem;
@@ -20,10 +22,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     public TrayApplicationContext()
     {
+        _uiDispatcher = new Control();
+        _uiDispatcher.CreateControl();
+
         _supervisor = new BackendSupervisor(_desired);
         _supervisor.StateChanged += OnSupervisorStateChanged;
 
-        var menu = new ContextMenuStrip();
+        _menu = new ContextMenuStrip();
 
         _statusItem = new ToolStripMenuItem
         {
@@ -73,20 +78,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
         var exitItem = new ToolStripMenuItem("Exit");
         exitItem.Click += (_, _) => ExitApplication();
 
-        menu.Items.Add(_statusItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(_enabledItem);
-        menu.Items.Add(modeMenu);
-        menu.Items.Add(_autoReconnectItem);
-        menu.Items.Add(restartItem);
-        menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(exitItem);
+        _menu.Items.Add(_statusItem);
+        _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add(_enabledItem);
+        _menu.Items.Add(modeMenu);
+        _menu.Items.Add(_autoReconnectItem);
+        _menu.Items.Add(restartItem);
+        _menu.Items.Add(new ToolStripSeparator());
+        _menu.Items.Add(exitItem);
 
         _notifyIcon = new NotifyIcon
         {
             Icon = SystemIcons.Application,
             Text = "LE Audio Router",
-            ContextMenuStrip = menu,
+            ContextMenuStrip = _menu,
             Visible = true
         };
 
@@ -133,10 +138,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         object? sender,
         EventArgs e)
     {
-        if (Application.MessageLoop)
+        if (_uiDispatcher.IsDisposed)
         {
-            UpdateStatus();
+            return;
         }
+
+        if (_uiDispatcher.InvokeRequired)
+        {
+            _uiDispatcher.BeginInvoke(UpdateStatus);
+            return;
+        }
+
+        UpdateStatus();
     }
 
     private void UpdateStatus()
@@ -166,9 +179,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void ExitApplication()
     {
         _notifyIcon.Visible = false;
-        _supervisor.Dispose();
-        _notifyIcon.Dispose();
-
         ExitThread();
     }
 
@@ -181,6 +191,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
+            _menu.Dispose();
+            _uiDispatcher.Dispose();
         }
 
         base.Dispose(disposing);
