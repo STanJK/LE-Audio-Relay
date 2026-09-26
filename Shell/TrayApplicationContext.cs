@@ -163,10 +163,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void UpdateStatus()
     {
+        string backend =
+            _supervisor.ActiveBackendGeneration is long generation
+                ? $"Backend gen: {generation}"
+                : "Backend gen: none";
+
         _statusItem.Text =
             $"State: {_supervisor.State} | " +
-            $"Mode: {_desired.Mode} | " +
-            $"Restart gen: {_supervisor.RestartGeneration}";
+            $"{backend} | " +
+            $"Mode: {_desired.Mode}";
 
         _notifyIcon.Text =
             _supervisor.State switch
@@ -176,6 +181,16 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
                 SupervisorState.RestartRequested =>
                     "LE Audio Router - Restart requested",
+
+                SupervisorState.Starting =>
+                    "LE Audio Router - Starting backend",
+
+                SupervisorState.Restarting or
+                SupervisorState.RestartRequested =>
+                    "LE Audio Router - Restarting backend",
+
+                SupervisorState.Faulted =>
+                    "LE Audio Router - Backend fault",
 
                 SupervisorState.Stopped =>
                     "LE Audio Router - Stopped",

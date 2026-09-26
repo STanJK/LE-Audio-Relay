@@ -9,7 +9,7 @@ This module map follows ownership rather than implementation technology.
 | `Host/` | Select process mode and own only process-entry concerns. |
 | `Shell/` | Own the Windows tray lifetime, user interaction, and presentation of desired/observed state. |
 | `Settings/` | Own frontend-neutral desired router configuration. |
-| `Supervision/` | Own backend lifecycle policy, restart intent, and later reconciliation between desired state and observed reality. |
+| `Supervision/` | Own backend lifecycle policy, generation replacement, worker-process monitoring, and the local typed worker protocol. |
 | `Cli/` | Thin command-line adapter. It must not own router policy or audio behavior. |
 | `Legacy/V0.1/` | Frozen historical implementation and VF-KB evidence. Never a production dependency. |
 

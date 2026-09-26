@@ -1,14 +1,34 @@
+using System.Diagnostics;
+using System.IO.Pipes;
 using LEAudioRouter.Settings;
 
 namespace LEAudioRouter.Supervision;
 
 internal sealed class BackendSupervisor : IDisposable
 {
+    private static readonly TimeSpan ReconcilePeriod =
+        TimeSpan.FromMilliseconds(500);
+
+    private static readonly TimeSpan WorkerHandshakeTimeout =
+        TimeSpan.FromSeconds(5);
+
+    private static readonly TimeSpan WorkerHeartbeatTimeout =
+        TimeSpan.FromSeconds(4);
+
+    private static readonly TimeSpan WorkerShutdownTimeout =
+        TimeSpan.FromSeconds(2);
+
     private readonly object _gate = new();
     private readonly DesiredRouterState _desiredState;
+    private readonly CancellationTokenSource _lifetimeCts = new();
 
-    private SupervisorState _state = SupervisorState.WaitingForBackend;
+    private SupervisorState _state = SupervisorState.Idle;
+    private Task? _loopTask;
+
     private long _restartGeneration;
+    private long _nextBackendGeneration;
+    private long? _activeBackendGeneration;
+    private string? _lastError;
 
     public BackendSupervisor(DesiredRouterState desiredState)
     {
@@ -39,9 +59,43 @@ internal sealed class BackendSupervisor : IDisposable
         }
     }
 
+    public long? ActiveBackendGeneration
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _activeBackendGeneration;
+            }
+        }
+    }
+
+    public string? LastError
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _lastError;
+            }
+        }
+    }
+
     public void Start()
     {
-        SetState(SupervisorState.WaitingForBackend);
+        lock (_gate)
+        {
+            if (_loopTask is not null)
+            {
+                return;
+            }
+
+            _loopTask = Task.Run(
+                () => ReconcileLoopAsync(
+                    _lifetimeCts.Token));
+        }
+
+        PublishState(SupervisorState.Starting);
     }
 
     public void RequestRestart()
@@ -49,51 +103,686 @@ internal sealed class BackendSupervisor : IDisposable
         lock (_gate)
         {
             _restartGeneration++;
-            _state = SupervisorState.RestartRequested;
         }
 
-        StateChanged?.Invoke(this, EventArgs.Empty);
+        PublishState(SupervisorState.RestartRequested);
     }
 
     public void SetEnabled(bool enabled)
     {
-        _desiredState.Enabled = enabled;
+        lock (_gate)
+        {
+            _desiredState.Enabled = enabled;
+        }
 
-        SetState(
+        PublishState(
             enabled
-                ? SupervisorState.WaitingForBackend
+                ? SupervisorState.Starting
                 : SupervisorState.Stopped);
     }
 
     public void SetMode(RouterMode mode)
     {
-        if (_desiredState.Mode == mode)
+        bool changed;
+
+        lock (_gate)
         {
-            return;
+            changed =
+                _desiredState.Mode != mode;
+
+            if (changed)
+            {
+                _desiredState.Mode = mode;
+                _restartGeneration++;
+            }
         }
 
-        _desiredState.Mode = mode;
-        RequestRestart();
+        if (changed)
+        {
+            PublishState(
+                SupervisorState.RestartRequested);
+        }
     }
 
     public void SetAutoReconnect(bool enabled)
     {
-        _desiredState.AutoReconnect = enabled;
-        StateChanged?.Invoke(this, EventArgs.Empty);
+        lock (_gate)
+        {
+            _desiredState.AutoReconnect = enabled;
+        }
+
+        RaiseStateChanged();
     }
 
     public void Dispose()
     {
-        SetState(SupervisorState.Stopped);
+        _lifetimeCts.Cancel();
+
+        Task? loop;
+
+        lock (_gate)
+        {
+            loop = _loopTask;
+        }
+
+        if (loop is not null)
+        {
+            try
+            {
+                loop.Wait(
+                    TimeSpan.FromSeconds(4));
+            }
+            catch
+            {
+            }
+        }
+
+        _lifetimeCts.Dispose();
+
+        PublishState(
+            SupervisorState.Stopped);
     }
 
-    private void SetState(SupervisorState state)
+    private async Task ReconcileLoopAsync(
+        CancellationToken cancellationToken)
+    {
+        WorkerGeneration? active = null;
+
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                DesiredSnapshot desired =
+                    SnapshotDesired();
+
+                if (!desired.Enabled)
+                {
+                    if (active is not null)
+                    {
+                        await StopGenerationAsync(
+                            active,
+                            cancellationToken);
+
+                        active = null;
+                        SetActiveGeneration(null);
+                    }
+
+                    PublishState(
+                        SupervisorState.Stopped);
+
+                    await DelayAsync(cancellationToken);
+                    continue;
+                }
+
+                if (active is not null &&
+                    active.Completion.IsCompleted)
+                {
+                    string? failure =
+                        await ReadCompletionFailureAsync(
+                            active.Completion);
+
+                    await active.DisposeAsync();
+
+                    active = null;
+                    SetActiveGeneration(null);
+
+                    if (failure is not null)
+                    {
+                        SetLastError(failure);
+                    }
+
+                    if (!desired.AutoReconnect)
+                    {
+                        PublishState(
+                            SupervisorState.Faulted);
+
+                        await DelayAsync(cancellationToken);
+                        continue;
+                    }
+                }
+
+                bool generationIsStale =
+                    active is not null &&
+                    (active.RestartGeneration !=
+                        desired.RestartGeneration ||
+                     active.Configuration !=
+                        desired.Configuration);
+
+                if (generationIsStale)
+                {
+                    PublishState(
+                        SupervisorState.Restarting);
+
+                    await StopGenerationAsync(
+                        active!,
+                        cancellationToken);
+
+                    active = null;
+                    SetActiveGeneration(null);
+                }
+
+                if (active is null)
+                {
+                    PublishState(
+                        SupervisorState.Starting);
+
+                    try
+                    {
+                        active =
+                            await StartGenerationAsync(
+                                desired,
+                                cancellationToken);
+
+                        SetActiveGeneration(
+                            active.Generation);
+
+                        SetLastError(null);
+
+                        PublishState(
+                            SupervisorState.Running);
+                    }
+                    catch (OperationCanceledException)
+                        when (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        SetLastError(ex.Message);
+                        PublishState(
+                            SupervisorState.Faulted);
+
+                        if (!desired.AutoReconnect)
+                        {
+                            await DelayAsync(
+                                cancellationToken);
+
+                            continue;
+                        }
+                    }
+                }
+
+                await DelayAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            if (active is not null)
+            {
+                try
+                {
+                    await StopGenerationAsync(
+                        active,
+                        CancellationToken.None);
+                }
+                catch
+                {
+                }
+
+                SetActiveGeneration(null);
+            }
+        }
+    }
+
+    private async Task<WorkerGeneration> StartGenerationAsync(
+        DesiredSnapshot desired,
+        CancellationToken cancellationToken)
+    {
+        long generation =
+            Interlocked.Increment(
+                ref _nextBackendGeneration);
+
+        string pipeName =
+            $"LEAudioRouter.Backend." +
+            $"{Environment.ProcessId}." +
+            $"{generation}." +
+            $"{Guid.NewGuid():N}";
+
+        var pipe =
+            new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+
+        Process? process = null;
+
+        try
+        {
+            process =
+                StartWorkerProcess(
+                    pipeName,
+                    generation,
+                    desired.Configuration);
+
+            using var handshakeCts =
+                CancellationTokenSource.CreateLinkedTokenSource(
+                    cancellationToken);
+
+            handshakeCts.CancelAfter(
+                WorkerHandshakeTimeout);
+
+            await pipe.WaitForConnectionAsync(
+                handshakeCts.Token);
+
+            var reader =
+                new StreamReader(pipe);
+
+            var writer =
+                new StreamWriter(pipe)
+                {
+                    AutoFlush = true
+                };
+
+            WorkerEnvelope hello =
+                await ReadMessageWithTimeoutAsync(
+                    reader,
+                    WorkerHandshakeTimeout,
+                    cancellationToken);
+
+            if (hello.Type != WorkerProtocol.Hello ||
+                hello.Generation != generation)
+            {
+                throw new InvalidDataException(
+                    "Backend worker returned an invalid handshake.");
+            }
+
+            Task<string?> completion =
+                MonitorWorkerAsync(
+                    reader,
+                    process,
+                    generation,
+                    cancellationToken);
+
+            return new WorkerGeneration(
+                generation,
+                desired.RestartGeneration,
+                desired.Configuration,
+                process,
+                pipe,
+                reader,
+                writer,
+                completion);
+        }
+        catch
+        {
+            if (process is not null)
+            {
+                TryKill(process);
+                process.Dispose();
+            }
+
+            pipe.Dispose();
+            throw;
+        }
+    }
+
+    private static Process StartWorkerProcess(
+        string pipeName,
+        long generation,
+        RouterLaunchConfiguration configuration)
+    {
+        string? processPath =
+            Environment.ProcessPath;
+
+        if (string.IsNullOrWhiteSpace(
+                processPath))
+        {
+            throw new InvalidOperationException(
+                "Environment.ProcessPath is unavailable.");
+        }
+
+        string[] currentArgs =
+            Environment.GetCommandLineArgs();
+
+        var info =
+            new ProcessStartInfo
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+        bool launchedByDotnet =
+            Path.GetFileNameWithoutExtension(
+                    processPath)
+                .Equals(
+                    "dotnet",
+                    StringComparison.OrdinalIgnoreCase);
+
+        if (launchedByDotnet)
+        {
+            info.FileName = processPath;
+
+            if (currentArgs.Length == 0)
+            {
+                throw new InvalidOperationException(
+                    "Unable to determine current assembly path.");
+            }
+
+            info.ArgumentList.Add(
+                currentArgs[0]);
+        }
+        else
+        {
+            info.FileName = processPath;
+        }
+
+        info.ArgumentList.Add(
+            "--backend-worker");
+
+        info.ArgumentList.Add(
+            "--pipe");
+
+        info.ArgumentList.Add(
+            pipeName);
+
+        info.ArgumentList.Add(
+            "--generation");
+
+        info.ArgumentList.Add(
+            generation.ToString());
+
+        info.ArgumentList.Add(
+            "--mode");
+
+        info.ArgumentList.Add(
+            configuration.Mode.ToString());
+
+        info.ArgumentList.Add(
+            "--dest");
+
+        info.ArgumentList.Add(
+            configuration.DestinationMatch);
+
+        return Process.Start(info)
+            ?? throw new InvalidOperationException(
+                "Failed to start backend worker process.");
+    }
+
+    private static async Task<string?> MonitorWorkerAsync(
+        StreamReader reader,
+        Process process,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (process.HasExited)
+            {
+                return
+                    $"Backend generation {generation} exited " +
+                    $"with code {process.ExitCode}.";
+            }
+
+            WorkerEnvelope message;
+
+            try
+            {
+                message =
+                    await ReadMessageWithTimeoutAsync(
+                        reader,
+                        WorkerHeartbeatTimeout,
+                        cancellationToken);
+            }
+            catch (TimeoutException)
+            {
+                return
+                    $"Backend generation {generation} heartbeat timed out.";
+            }
+            catch (EndOfStreamException)
+            {
+                return
+                    $"Backend generation {generation} closed its control pipe.";
+            }
+
+            if (message.Generation != generation)
+            {
+                continue;
+            }
+
+            if (message.Type == WorkerProtocol.Faulted)
+            {
+                return
+                    message.Detail ??
+                    $"Backend generation {generation} reported a fault.";
+            }
+
+            if (message.Type == WorkerProtocol.Stopped)
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<WorkerEnvelope>
+        ReadMessageWithTimeoutAsync(
+            StreamReader reader,
+            TimeSpan timeout,
+            CancellationToken cancellationToken)
+    {
+        Task<string?> readTask =
+            reader.ReadLineAsync(
+                    cancellationToken)
+                .AsTask();
+
+        string? line =
+            await readTask.WaitAsync(
+                timeout,
+                cancellationToken);
+
+        if (line is null)
+        {
+            throw new EndOfStreamException();
+        }
+
+        return WorkerProtocol.Deserialize(
+            line);
+    }
+
+    private static async Task StopGenerationAsync(
+        WorkerGeneration generation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await generation.Writer.WriteLineAsync(
+                WorkerProtocol.Serialize(
+                    new WorkerEnvelope(
+                        WorkerProtocol.Shutdown,
+                        generation.Generation)));
+        }
+        catch
+        {
+        }
+
+        try
+        {
+            await generation.Completion.WaitAsync(
+                WorkerShutdownTimeout,
+                cancellationToken);
+        }
+        catch
+        {
+            TryKill(
+                generation.Process);
+        }
+
+        if (!generation.Process.HasExited)
+        {
+            TryKill(
+                generation.Process);
+        }
+
+        await generation.DisposeAsync();
+    }
+
+    private static void TryKill(
+        Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(
+                    entireProcessTree: true);
+
+                process.WaitForExit(1000);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static async Task<string?>
+        ReadCompletionFailureAsync(
+            Task<string?> completion)
+    {
+        try
+        {
+            return await completion;
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+        catch (Exception ex)
+        {
+            return ex.Message;
+        }
+    }
+
+    private DesiredSnapshot SnapshotDesired()
     {
         lock (_gate)
         {
+            return new DesiredSnapshot(
+                _desiredState.Enabled,
+                _desiredState.AutoReconnect,
+                new RouterLaunchConfiguration(
+                    _desiredState.Mode,
+                    _desiredState.DestinationMatch),
+                _restartGeneration);
+        }
+    }
+
+    private void SetActiveGeneration(
+        long? generation)
+    {
+        lock (_gate)
+        {
+            _activeBackendGeneration =
+                generation;
+        }
+
+        RaiseStateChanged();
+    }
+
+    private void SetLastError(
+        string? error)
+    {
+        lock (_gate)
+        {
+            _lastError = error;
+        }
+
+        RaiseStateChanged();
+    }
+
+    private void PublishState(
+        SupervisorState state)
+    {
+        bool changed;
+
+        lock (_gate)
+        {
+            changed =
+                _state != state;
+
             _state = state;
         }
 
-        StateChanged?.Invoke(this, EventArgs.Empty);
+        if (changed)
+        {
+            RaiseStateChanged();
+        }
+    }
+
+    private void RaiseStateChanged() =>
+        StateChanged?.Invoke(
+            this,
+            EventArgs.Empty);
+
+    private static async Task DelayAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(
+                ReconcilePeriod,
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private readonly record struct DesiredSnapshot(
+        bool Enabled,
+        bool AutoReconnect,
+        RouterLaunchConfiguration Configuration,
+        long RestartGeneration);
+
+    private sealed class WorkerGeneration :
+        IAsyncDisposable
+    {
+        public WorkerGeneration(
+            long generation,
+            long restartGeneration,
+            RouterLaunchConfiguration configuration,
+            Process process,
+            NamedPipeServerStream pipe,
+            StreamReader reader,
+            StreamWriter writer,
+            Task<string?> completion)
+        {
+            Generation = generation;
+            RestartGeneration = restartGeneration;
+            Configuration = configuration;
+            Process = process;
+            Pipe = pipe;
+            Reader = reader;
+            Writer = writer;
+            Completion = completion;
+        }
+
+        public long Generation { get; }
+
+        public long RestartGeneration { get; }
+
+        public RouterLaunchConfiguration Configuration { get; }
+
+        public Process Process { get; }
+
+        public NamedPipeServerStream Pipe { get; }
+
+        public StreamReader Reader { get; }
+
+        public StreamWriter Writer { get; }
+
+        public Task<string?> Completion { get; }
+
+        public ValueTask DisposeAsync()
+        {
+            Writer.Dispose();
+            Reader.Dispose();
+            Pipe.Dispose();
+            Process.Dispose();
+
+            return ValueTask.CompletedTask;
+        }
     }
 }

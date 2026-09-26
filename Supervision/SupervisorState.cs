@@ -3,8 +3,10 @@ namespace LEAudioRouter.Supervision;
 internal enum SupervisorState
 {
     Idle,
-    WaitingForBackend,
+    Starting,
     Running,
     RestartRequested,
+    Restarting,
+    Faulted,
     Stopped
 }

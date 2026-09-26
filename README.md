@@ -13,11 +13,12 @@ It establishes:
 - one long-lived Windows tray application;
 - right-click desired-state controls for GameEffects, GameMedia, Media, and Default/unset;
 - GameEffects as the new desired default mode;
-- a frontend-neutral supervisor state object;
+- a frontend-neutral supervisor that spawns and replaces disposable backend generations;
+- a local named-pipe worker protocol with handshake and heartbeat monitoring;
 - explicit reserved process modes for future backend workers and CLI control;
 - no dependency on NAudio or the legacy relay implementation.
 
-The audio backend is deliberately not connected yet.
+The backend worker currently exercises lifecycle/IPC only; it deliberately contains no audio code yet.
 
 ## Architectural direction
 
