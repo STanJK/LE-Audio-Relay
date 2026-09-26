@@ -17,9 +17,9 @@
 > [!NOTE]
 > **开发说明 — VibeFactory 集成**
 >
-> LE Audio Router 的实际开发过程中已经嵌入使用了 **VibeFactory**。VibeFactory 是一个独立的开发系统/库，目前仍处于 **Private** 状态，尚未开发到适合公开发布的阶段。
+> LE Audio Router 的实际开发过程中已经嵌入使用了 **VibeFactory**。VibeFactory 是一个独立的开发系统/库，目前仍处于 **Private** 状态，并计划在自身达到公开节点后单独发布。
 >
-> **运行或编译 LE Audio Router 不需要访问 VibeFactory**。这里仅公开说明这项集成确实存在并参与了真实开发过程；VibeFactory 的私有实现细节不会在本项目公开文档中披露。
+> **运行或编译 LE Audio Router 不需要访问 VibeFactory**。这里暂时只做高层说明，是因为 VibeFactory 还没有到自己的公开文档节点，而不是因为这项集成本身被当作需要严格保密的内容。
 
 LE Audio Router 是一个 Windows 用户态音频中继工具，最初用于解决我们在实际 Windows LE Audio 日用过程中观察到的一类生命周期问题。
 
