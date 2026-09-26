@@ -8,15 +8,15 @@ coverage "mapped"
 
 <!--vf:summary
 entry "BackendSupervisor starts or reconciles one worker generation using the current immutable route-generation configuration snapshot."
-problem "Route-local failures and process-local COM/interop state must be replaceable without terminating the tray product lifetime."
-behavior "Spawn one backend-worker process, validate its named-pipe handshake, monitor heartbeat/status, and replace the generation after restart intent, configuration change, worker completion, or heartbeat failure."
-exit "A healthy worker remains current, or the failed/stale generation is disposed and supervision proceeds toward a fresh generation."
+problem "Route-local audio state must be replaceable as one process-local unit without terminating the tray product lifetime."
+behavior "Spawn one backend-worker process, validate HELLO, require the real audio route to reach RUNNING, monitor heartbeat/status, and replace the generation after restart intent, configuration change, route failure, worker completion, or heartbeat loss."
+exit "A healthy route worker remains current, or the failed/stale generation is disposed and supervision proceeds toward a fresh generation."
 -->
 
 <!--vf:source
 id "supervisor"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
 -->
@@ -24,7 +24,7 @@ symbol "BackendSupervisor"
 <!--vf:source
 id "worker"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Host/BackendWorker.cs"
 symbol "BackendWorker"
 -->
@@ -32,7 +32,7 @@ symbol "BackendWorker"
 <!--vf:source
 id "protocol"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Supervision/WorkerProtocol.cs"
 symbol "WorkerProtocol"
 -->
@@ -40,7 +40,7 @@ symbol "WorkerProtocol"
 <!--vf:source
 id "generation-config"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Settings/RouteGenerationConfiguration.cs"
 symbol "RouteGenerationConfiguration"
 -->
@@ -48,7 +48,7 @@ symbol "RouteGenerationConfiguration"
 <!--vf:source
 id "adr"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
@@ -57,6 +57,14 @@ id "one-worker-is-one-generation"
 type "fact"
 text "BackendSupervisor assigns a monotonically increasing generation number and spawns one --backend-worker process for that generation."
 evidence "supervisor"
+-->
+
+<!--vf:claim
+id "running-requires-real-route-start"
+type "fact"
+text "The supervisor does not publish Running until the worker sends RUNNING, and the worker sends RUNNING only after RouteSession.StartAsync succeeds."
+evidence "supervisor"
+evidence "worker"
 -->
 
 <!--vf:claim
@@ -74,11 +82,11 @@ text "ADR 0001 defines the worker process as a user-mode fault and diagnostic bo
 evidence "adr"
 -->
 
-**Why:** The worker boundary provides a complete disposable unit for route-local state and a useful diagnostic distinction between process-local failures and faults that survive a fresh PID. [explain →](./round4-shell.fact.md#worker-why)
+**Why:** The worker boundary provides a complete disposable unit for route-local state and a diagnostic distinction between process-local failures and faults that survive a fresh PID. [explain →](./round4-shell.fact.md#worker-why)
 
-**What:** The supervisor creates one worker generation, validates its handshake, monitors heartbeats, and replaces it whenever the generation becomes stale or fails. [explain →](./round4-shell.fact.md#worker-what)
+**What:** The supervisor creates one worker generation, validates its control handshake, waits for the contained audio route to become RUNNING, then monitors the worker until replacement is required. [explain →](./round4-shell.fact.md#worker-what)
 
-**Outcome:** The tray process survives worker replacement while each new route generation receives a fresh worker process and immutable configuration snapshot. [explain →](./round4-shell.fact.md#worker-outcome)
+**Outcome:** The tray process survives worker replacement while each new route generation receives a fresh worker process, immutable configuration snapshot, and freshly constructed audio route. [explain →](./round4-shell.fact.md#worker-outcome)
 
 ```mermaid
 flowchart TD
@@ -92,8 +100,12 @@ flowchart TD
     absent{"Worker generation absent?"}
 
     %% vf:element kind="action"
-    %% vf:op call target="StartGenerationAsync" args="desired,cancellationToken" source="supervisor"
-    start["Spawn and handshake worker"]
+    %% vf:op call target="StartWorkerProcess" args="pipeName,generation,configuration" source="supervisor"
+    spawn["Spawn worker and validate HELLO"]
+
+    %% vf:element kind="child"
+    %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session"
+    route[["Start real audio route"]]
 
     %% vf:element kind="decision"
     %% vf:guard expr="active.Completion.IsCompleted" source="supervisor"
@@ -104,17 +116,18 @@ flowchart TD
     replace["Dispose stale or failed generation"]
 
     %% vf:element kind="output"
-    healthy(["Current generation retained"])
+    healthy(["Current RUNNING generation retained"])
 
     reconcile --> absent
 
     %% vf:branch when="active == null"
-    absent -->|"yes"| start
+    absent -->|"yes"| spawn
 
     %% vf:branch when="active != null"
     absent -->|"no"| completed
 
-    start --> healthy
+    spawn --> route
+    route --> healthy
 
     %% vf:branch when="active.Completion.IsCompleted"
     completed -->|"yes"| replace
@@ -135,10 +148,10 @@ purpose "Linear reading companion to the Mermaid flow; ignored by AI context by 
 SUPERVISOR LOOP:
     snapshot current route configuration and restart revision
 
-    IF current generation has completed or failed:
-        collect its completion reason
-        dispose its process and control resources
+    IF current generation completed or failed:
+        dispose it
         clear current generation
+        wait a short recovery delay
         continue toward automatic replacement
 
     IF current generation uses stale configuration
@@ -150,20 +163,22 @@ SUPERVISOR LOOP:
         allocate next generation number
         create private named pipe
         spawn this executable in --backend-worker mode
-        require a valid HELLO for this generation
+        require HELLO
+        require the worker's real RouteSession to reach RUNNING
         start heartbeat/status monitoring
         publish RUNNING
 
-    otherwise keep the current generation
-
 WORKER:
-    connect to the supplied pipe
-    send HELLO and RUNNING
-    send periodic HEARTBEAT messages
+    connect to parent
+    send HELLO
+    start RouteSession
 
-    ON SHUTDOWN:
-        stop heartbeat
-        report STOPPING
-        exit the process
+    IF RouteSession starts:
+        send RUNNING
+        send periodic HEARTBEAT messages
+
+    IF RouteSession fails:
+        send FAULTED
+        exit this generation
 ```
 <!--vf:end-->

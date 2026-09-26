@@ -15,7 +15,7 @@ exit "The application remains alive with a healthy or recovering worker generati
 <!--vf:source
 id "program"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Program.cs"
 symbol "Program"
 -->
@@ -23,7 +23,7 @@ symbol "Program"
 <!--vf:source
 id "shell"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Shell/TrayApplicationContext.cs"
 symbol "TrayApplicationContext"
 -->
@@ -31,14 +31,14 @@ symbol "TrayApplicationContext"
 <!--vf:source
 id "architecture"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "docs/ARCHITECTURE.md"
 -->
 
 <!--vf:source
 id "adr-worker-boundary"
 repo "STanJK/le-audio-windows-relay"
-rev "1ad69da40acdc6ca1f521976a4d123e6e64b0242"
+rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
