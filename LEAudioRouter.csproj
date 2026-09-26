@@ -11,19 +11,14 @@
     <AssemblyName>LEAudioRouter</AssemblyName>
     <RootNamespace>LEAudioRouter</RootNamespace>
 
-    <!-- V0.20 is frozen on release/v0.20; this branch continues Round4. -->
-    <Version>0.20.0</Version>
-    <AssemblyVersion>0.20.0.0</AssemblyVersion>
-    <FileVersion>0.20.0.0</FileVersion>
-    <InformationalVersion>V0.20+round4-dev</InformationalVersion>
+    <!-- V0.20.1: first stabilized Tray build with the real audio route. -->
+    <Version>0.20.1</Version>
+    <AssemblyVersion>0.20.1.0</AssemblyVersion>
+    <FileVersion>0.20.1.0</FileVersion>
+    <InformationalVersion>V0.20.1</InformationalVersion>
     <Product>LE Audio Router</Product>
     <Description>Windows LE Audio routing shell and supervised route host.</Description>
 
-    <!--
-      Round4 is a clean rewrite. Disable the SDK's recursive **/*.cs glob so
-      frozen Legacy source (and Legacy build artifacts) can never enter the
-      canonical application build graph accidentally.
-    -->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
