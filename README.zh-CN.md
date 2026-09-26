@@ -1,4 +1,4 @@
-# LE Audio Router
+# LE Audio Relay
 
 **一个用于让 Windows 蓝牙 LE Audio 播放链路持续存活、可恢复、可观测的系统托盘音频中继工具。**
 
@@ -17,13 +17,13 @@
 > [!NOTE]
 > **开发说明 — VibeFactory 集成**
 >
-> LE Audio Router 的实际开发过程中已经嵌入使用了 **VibeFactory**。VibeFactory 是一个独立的开发系统/库，目前仍处于 **Private** 状态，并计划在自身达到公开节点后单独发布。
+> LE Audio Relay 的实际开发过程中已经嵌入使用了 **VibeFactory**。VibeFactory 是一个独立的开发系统/库，目前仍处于 **Private** 状态，并计划在自身达到公开节点后单独发布。
 >
-> **运行或编译 LE Audio Router 不需要访问 VibeFactory**。这里暂时只做高层说明，是因为 VibeFactory 还没有到自己的公开文档节点，而不是因为这项集成本身被当作需要严格保密的内容。
+> **运行或编译 LE Audio Relay 不需要访问 VibeFactory**。这里暂时只做高层说明，是因为 VibeFactory 还没有到自己的公开文档节点，而不是因为这项集成本身被当作需要严格保密的内容。
 
-LE Audio Router 是一个 Windows 用户态音频中继工具，最初用于解决我们在实际 Windows LE Audio 日用过程中观察到的一类生命周期问题。
+LE Audio Relay 是一个 Windows 用户态音频中继工具，最初用于解决我们在实际 Windows LE Audio 日用过程中观察到的一类生命周期问题。
 
-它不会直接让普通应用把 Galaxy Buds3 Pro 当作 Windows 默认输出。相反，应用先向另一个稳定的物理输出端点渲染，LE Audio Router 通过 **Process Loopback** 捕获系统混音，再把 PCM 持续送到 LE Audio 耳机，并且在静音期间仍然向最终目的端输出真实的 zero PCM，从而让最终 LE Audio render stream 保持存活。
+它不会直接让普通应用把 Galaxy Buds3 Pro 当作 Windows 默认输出。相反，应用先向另一个稳定的物理输出端点渲染，LE Audio Relay 通过 **Process Loopback** 捕获系统混音，再把 PCM 持续送到 LE Audio 耳机，并且在静音期间仍然向最终目的端输出真实的 zero PCM，从而让最终 LE Audio render stream 保持存活。
 
 目前主要验证目标是 **Samsung Galaxy Buds3 Pro + Windows 11**。其他 LE Audio 耳机可能可以工作，但现在还不声明为正式支持。
 
@@ -119,7 +119,7 @@ flowchart LR
 
 > **Buds 不是 Windows 默认输出。**
 
-Windows 普通应用先向一个稳定的物理端点渲染，例如 NVIDIA HDMI 或 Realtek。Router 再用 Process Loopback 把它抓出来，并把最终 LE Audio endpoint 的生命周期掌握在自己手里。
+Windows 普通应用先向一个稳定的物理端点渲染，例如 NVIDIA HDMI 或 Realtek。Relay 再用 Process Loopback 把它抓出来，并把最终 LE Audio endpoint 的生命周期掌握在自己手里。
 
 ---
 
@@ -140,8 +140,8 @@ Windows 普通应用先向一个稳定的物理端点渲染，例如 NVIDIA HDMI
 ### 编译
 
 ```powershell
-git clone https://github.com/STanJK/le-audio-windows-relay.git
-cd le-audio-windows-relay
+git clone https://github.com/STanJK/LE-Audio-Relay.git
+cd LE-Audio-Relay
 
 dotnet build .\LEAudioRouter.csproj -c Release
 ```
@@ -313,7 +313,7 @@ MANUAL_RESTART
 
 ## 这个项目不是什么
 
-LE Audio Router 不是：
+LE Audio Relay 不是：
 
 - Bluetooth driver；
 - 自制 Windows LE Audio host stack；
