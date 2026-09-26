@@ -19,6 +19,8 @@ Windows x64 · Self-contained · 单 EXE · 约 50 MB · 无需另外安装 .NET
 
 > [!WARNING]
 > 这是 **Daily Test 预发布版本**，不是稳定版。完整多日日测仍在进行中。
+>
+> **Daily Test Candidate 2 当前硬编码针对 Samsung Galaxy Buds3 Pro。** 预编译 EXE 会寻找唯一一个 FriendlyName 包含 `Galaxy Buds3 Pro` 的 Active render endpoint；其他 LE Audio 设备在这个 binary 中暂时不会被选为最终输出。
 
 > [!IMPORTANT]
 > **当前状态：V0.21 Daily Test Candidate 2。**
@@ -36,7 +38,11 @@ LE Audio Relay 是一个 Windows 用户态音频中继工具，最初用于解�
 
 它不会直接让普通应用把 Galaxy Buds3 Pro 当作 Windows 默认输出。相反，应用先向另一个稳定的物理输出端点渲染，LE Audio Relay 通过 **Process Loopback** 捕获系统混音，再把 PCM 持续送到 LE Audio 耳机，并且在静音期间仍然向最终目的端输出真实的 zero PCM，从而让最终 LE Audio render stream 保持存活。
 
-目前主要验证目标是 **Samsung Galaxy Buds3 Pro + Windows 11**。其他 LE Audio 耳机可能可以工作，但现在还不声明为正式支持。
+目前主要验证目标是 **Samsung Galaxy Buds3 Pro + Windows 11**，而且 **Daily 2 的预编译 binary 也硬编码了这个目标名**。这一版还没有通用 endpoint selector。
+
+高级用户现在可以直接改源码：修改 `Settings/RelayConfiguration.cs` 里的 `DestinationMatch`，然后重新 build，即可尝试其他 LE Audio render endpoint。内部 worker 虽然存在 `--dest` 参数，但它还依赖 supervisor 的私有 pipe/generation 参数，**不是可直接使用的用户 CLI**。
+
+下一版计划加入首次启动时的简单双列表 endpoint 选择界面。
 
 ---
 
@@ -116,7 +122,7 @@ flowchart LR
     Worker["Disposable Worker"]
 
     Apps --> Sink
-    Sink --> Capture
+    Apps -. "render streams 同时可被 Process Loopback 捕获" .-> Capture
     Capture --> Ring
     Ring --> Buds
 
