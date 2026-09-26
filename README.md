@@ -1,12 +1,16 @@
 # LE Audio Router
 
+**Current frozen milestone: V0.20 — first stabilized Tray form**
+
 Round4 is a clean architectural rewrite of the Windows LE Audio relay.
 
 The previous known-good Process Loopback implementation is frozen under [Legacy/V0.1](Legacy/V0.1/README.md). New production code must not depend on the legacy archive.
 
-## Current milestone
+## V0.20 milestone
 
-The root implementation currently establishes the lifecycle shell before real audio routing is reintroduced:
+V0.20 is the first stabilized Tray-shaped application baseline. It freezes the product/lifecycle shell before real audio routing is reintroduced.
+
+It establishes:
 
 - one long-lived Windows tray/supervisor process;
 - one disposable backend worker process per route generation;
@@ -15,9 +19,11 @@ The root implementation currently establishes the lifecycle shell before real au
 - manual route replacement through **Restart audio route**;
 - render-category selection: GameEffects, GameMedia, Media, and Default/unset;
 - GameEffects as the default;
+- the two-process fault/diagnostic boundary documented by ADR 0001;
+- a current Round4 VF-KB model for the tray/worker architecture;
 - no dependency on NAudio or the Legacy V0.1 implementation yet.
 
-The worker currently exercises lifecycle/IPC only; audio code is the next layer.
+The worker currently exercises lifecycle/IPC only; audio code is the next layer after V0.20.
 
 ## Product semantics
 
@@ -34,7 +40,7 @@ user wants routing stopped
 
 There is intentionally no separate Router Enabled toggle and no configurable Auto reconnect policy.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [ADR 0001](docs/decisions/0001-out-of-process-route-generation.md), and the current [Round4 VF-KB](VF/round4-shell.vf.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [ADR 0001](docs/decisions/0001-out-of-process-route-generation.md), the [V0.20 release note](docs/releases/V0.20.md), and the current [Round4 VF-KB](VF/round4-shell.vf.md).
 
 ## Runtime architecture
 
@@ -62,6 +68,17 @@ flowchart TD
 6. **Exactly two runtime process roles are allowed unless a later ADR changes this.**
 7. **Legacy V0.1 is evidence, not a library.**
 8. **Clock synchronization remains a future Timing module.**
+
+## Version metadata
+
+V0.20 is embedded into the .NET application metadata:
+
+```text
+Version              0.20.0
+AssemblyVersion      0.20.0.0
+FileVersion          0.20.0.0
+InformationalVersion V0.20
+```
 
 ## Build
 
