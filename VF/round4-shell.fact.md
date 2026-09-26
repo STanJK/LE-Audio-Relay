@@ -77,3 +77,46 @@ After waking, AudioEndpointProbe re-enumerates active render endpoints and the d
 ### lifecycle-outcome
 
 When Buds are absent, there is no worker process and no repeated route-start attempt. When Windows reports a topology change, the supervisor immediately re-probes and starts a fresh generation only after the endpoint becomes active again. A 30-second safety probe protects against missed notifications without creating workers while absence persists. Bounded retry remains available only for genuine worker/route failure while topology still appears eligible.
+
+
+## Power lifecycle
+
+### power-why
+
+Windows suspend/resume invalidates assumptions below the route-generation boundary. Rather than teaching each WASAPI object to survive sleep, Round4 treats a power epoch change as evidence that the entire pre-resume generation is stale.
+
+### power-what
+
+PowerObserver receives WM_POWERBROADCAST in the Tray process and only updates PowerSnapshot plus a wake signal. PowerRevision increases on resume. Each WorkerGeneration records the revision under which it was created. The supervisor creates no new worker while suspended and replaces any pre-resume generation after wake before trusting audio again.
+
+### power-outcome
+
+A route that reaches RUNNING after resume is freshly constructed for the current Windows power epoch. Endpoint absence after wake naturally falls into WaitingForEndpoint and route-start failures naturally reuse bounded recovery.
+
+## Provisional positive-drift guard
+
+### drift-why
+
+The current capture/render clocks can accumulate positive ring drift during multi-hour daily use. Full synchronization is deliberately deferred, but permanent ring saturation is not acceptable for the daily-use validation baseline.
+
+### drift-what
+
+ProvisionalPositiveDriftGuard first removes excess source-declared silence above the target cushion. Under uninterrupted audio it uses a slow one-stereo-frame slip every four render callbacks only while fill remains above the high-water band. A near-capacity hard trim exists only as an emergency guardrail. Intentional correction frames have dedicated telemetry and are excluded from real runtime-drop accounting.
+
+### drift-outcome
+
+The current branch can run for long periods without intentionally allowing the ring to remain pinned at capacity, while the future formal Timing controller still has a clean module boundary to replace this provisional behavior.
+
+## Lifecycle journal
+
+### journal-why
+
+Daily dogfooding needs enough persistent evidence to correlate failures with reconnects, sleep/wake, worker replacement, and mode changes. High-frequency warning output would make that evidence harder to use.
+
+### journal-what
+
+LifecycleEventLog writes best-effort daily UTF-8 files under LocalApplicationData/LEAudioRouter/logs. Only low-frequency lifecycle transitions are persisted. Heartbeat, ring occupancy, overflow warnings, clock-trim warnings, and per-second telemetry are intentionally excluded.
+
+### journal-outcome
+
+After days or weeks of use, route lifecycle history can be reconstructed without log spam and without placing persistent I/O on audio callback paths.

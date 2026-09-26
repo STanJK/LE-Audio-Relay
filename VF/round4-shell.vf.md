@@ -15,7 +15,7 @@ exit "The application remains alive in Running, WaitingForEndpoint, TopologyBloc
 <!--vf:source
 id "program"
 repo "STanJK/le-audio-windows-relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Program.cs"
 symbol "Program"
 -->
@@ -23,7 +23,7 @@ symbol "Program"
 <!--vf:source
 id "shell"
 repo "STanJK/le-audio-windows-relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Shell/TrayApplicationContext.cs"
 symbol "TrayApplicationContext"
 -->
@@ -31,21 +31,21 @@ symbol "TrayApplicationContext"
 <!--vf:source
 id "architecture"
 repo "STanJK/le-audio-windows-relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/ARCHITECTURE.md"
 -->
 
 <!--vf:source
 id "adr-worker-boundary"
 repo "STanJK/le-audio-windows-relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
 <!--vf:source
 id "adr-endpoint-reconciliation"
 repo "STanJK/le-audio-windows-relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/decisions/0002-event-driven-endpoint-reconciliation.md"
 -->
 
@@ -98,6 +98,10 @@ flowchart TD
     tray["Start tray / supervisor lifetime"]
 
     %% vf:element kind="child"
+    %% vf:expand node="leaudio-router.round4-shell.power-lifecycle"
+    power[["Reconcile power epoch"]]
+
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.endpoint-lifecycle"
     lifecycle[["Reconcile endpoint reality"]]
 
@@ -110,7 +114,8 @@ flowchart TD
     exit(["Application exit"])
 
     start --> tray
-    tray --> lifecycle
+    tray --> power
+    power --> lifecycle
     lifecycle --> worker
     worker --> lifecycle
     lifecycle --> exit
@@ -130,6 +135,15 @@ ON normal application start:
 
     WHILE the tray application is alive:
         treat application lifetime as routing intent
+        reconcile current Windows power reality
+
+        IF Windows is suspended:
+            create no new worker
+            wait for resume
+
+        IF resume increments PowerRevision:
+            treat any pre-resume worker as stale
+
         reconcile current Windows endpoint reality
 
         IF target endpoint is absent:

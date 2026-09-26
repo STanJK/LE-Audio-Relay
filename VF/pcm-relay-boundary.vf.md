@@ -16,7 +16,7 @@ exit "Every render callback returns a complete buffer while route telemetry sepa
 <!--vf:source
 id "boundary"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Timing/PcmRelayBoundary.cs"
 symbol "PcmRelayBoundary"
 -->
@@ -24,7 +24,7 @@ symbol "PcmRelayBoundary"
 <!--vf:source
 id "ring"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Timing/SpscPcmRing.cs"
 symbol "SpscPcmRing"
 -->
@@ -32,7 +32,7 @@ symbol "SpscPcmRing"
 <!--vf:source
 id "telemetry"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Telemetry/RouteTelemetry.cs"
 symbol "RouteTelemetry"
 -->
@@ -87,6 +87,10 @@ flowchart TD
     %% vf:op call target="_ring.Discard" args="excess" source="boundary"
     activate["Trim startup excess and enter RELAY"]
 
+    %% vf:element kind="child"
+    %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary.provisional-positive-drift-guard"
+    guard[["Apply provisional positive-drift guard"]]
+
     %% vf:element kind="action"
     %% vf:op call target="_ring.Read" args="buffer,requestedFrames" source="boundary"
     read["Read available runtime frames"]
@@ -104,7 +108,8 @@ flowchart TD
     %% vf:branch when="observedFill < requiredFill"
     ready -->|"no"| render
 
-    activate --> read
+    activate --> guard
+    guard --> read
     read --> render
 ```
 
