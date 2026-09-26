@@ -43,7 +43,7 @@ internal sealed class AudioEndpointResolver :
 
             throw new InvalidOperationException(
                 $"Expected exactly one active render endpoint matching " +
-                $""{nameContains}", found {matches.Count}." +
+                $"\"{nameContains}\", found {matches.Count}." +
                 Environment.NewLine +
                 "Active render endpoints:" +
                 Environment.NewLine +
