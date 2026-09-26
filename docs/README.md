@@ -24,6 +24,7 @@ The project records decisions that materially constrain future implementation:
 - [ADR 0002 — Event-driven endpoint reconciliation](decisions/0002-event-driven-endpoint-reconciliation.md)
 - [ADR 0003 — Power revision invalidates pre-resume route generations](decisions/0003-power-revision-route-invalidation.md)
 - [ADR 0004 — Temporary positive-drift guard for daily-use validation](decisions/0004-provisional-positive-drift-guard.md)
+- [ADR 0005 — Product identity is LE Audio Relay](decisions/0005-product-identity-le-audio-relay.md)
 
 ## Evidence discipline
 
