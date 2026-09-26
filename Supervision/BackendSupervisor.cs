@@ -4,13 +4,20 @@ using LEAudioRouter.Settings;
 
 namespace LEAudioRouter.Supervision;
 
-internal sealed class BackendSupervisor : IDisposable
+internal sealed class BackendSupervisor :
+    IDisposable
 {
     private static readonly TimeSpan ReconcilePeriod =
         TimeSpan.FromMilliseconds(500);
 
+    private static readonly TimeSpan RecoveryDelay =
+        TimeSpan.FromSeconds(3);
+
     private static readonly TimeSpan WorkerHandshakeTimeout =
         TimeSpan.FromSeconds(5);
+
+    private static readonly TimeSpan WorkerStartupTimeout =
+        TimeSpan.FromSeconds(15);
 
     private static readonly TimeSpan WorkerHeartbeatTimeout =
         TimeSpan.FromSeconds(4);
@@ -18,9 +25,13 @@ internal sealed class BackendSupervisor : IDisposable
     private static readonly TimeSpan WorkerShutdownTimeout =
         TimeSpan.FromSeconds(2);
 
-    private readonly object _gate = new();
+    private readonly object _gate =
+        new();
+
     private readonly RouterConfiguration _configuration;
-    private readonly CancellationTokenSource _lifetimeCts = new();
+
+    private readonly CancellationTokenSource _lifetimeCts =
+        new();
 
     private SupervisorState _state =
         SupervisorState.Idle;
@@ -35,7 +46,8 @@ internal sealed class BackendSupervisor : IDisposable
     public BackendSupervisor(
         RouterConfiguration configuration)
     {
-        _configuration = configuration;
+        _configuration =
+            configuration;
     }
 
     public event EventHandler? StateChanged;
@@ -82,9 +94,11 @@ internal sealed class BackendSupervisor : IDisposable
                 return;
             }
 
-            _loopTask = Task.Run(
-                () => ReconcileLoopAsync(
-                    _lifetimeCts.Token));
+            _loopTask =
+                Task.Run(
+                    () =>
+                        ReconcileLoopAsync(
+                            _lifetimeCts.Token));
         }
 
         PublishState(
@@ -110,11 +124,14 @@ internal sealed class BackendSupervisor : IDisposable
         lock (_gate)
         {
             changed =
-                _configuration.Mode != mode;
+                _configuration.Mode !=
+                mode;
 
             if (changed)
             {
-                _configuration.Mode = mode;
+                _configuration.Mode =
+                    mode;
+
                 _restartRevision++;
             }
         }
@@ -158,7 +175,8 @@ internal sealed class BackendSupervisor : IDisposable
     private async Task ReconcileLoopAsync(
         CancellationToken cancellationToken)
     {
-        WorkerGeneration? active = null;
+        WorkerGeneration? active =
+            null;
 
         try
         {
@@ -177,16 +195,21 @@ internal sealed class BackendSupervisor : IDisposable
                     await active.DisposeAsync();
 
                     active = null;
-                    SetActiveGeneration(null);
+
+                    SetActiveGeneration(
+                        null);
 
                     if (failure is not null)
                     {
-                        SetLastError(failure);
+                        SetLastError(
+                            failure);
+
                         PublishState(
                             SupervisorState.Faulted);
                     }
 
                     await DelayAsync(
+                        RecoveryDelay,
                         cancellationToken);
 
                     continue;
@@ -209,7 +232,9 @@ internal sealed class BackendSupervisor : IDisposable
                         cancellationToken);
 
                     active = null;
-                    SetActiveGeneration(null);
+
+                    SetActiveGeneration(
+                        null);
                 }
 
                 if (active is null)
@@ -227,7 +252,8 @@ internal sealed class BackendSupervisor : IDisposable
                         SetActiveGeneration(
                             active.Generation);
 
-                        SetLastError(null);
+                        SetLastError(
+                            null);
 
                         PublishState(
                             SupervisorState.Running);
@@ -239,12 +265,14 @@ internal sealed class BackendSupervisor : IDisposable
                     }
                     catch (Exception ex)
                     {
-                        SetLastError(ex.Message);
+                        SetLastError(
+                            ex.Message);
 
                         PublishState(
                             SupervisorState.Faulted);
 
                         await DelayAsync(
+                            RecoveryDelay,
                             cancellationToken);
 
                         continue;
@@ -252,6 +280,7 @@ internal sealed class BackendSupervisor : IDisposable
                 }
 
                 await DelayAsync(
+                    ReconcilePeriod,
                     cancellationToken);
             }
         }
@@ -269,14 +298,16 @@ internal sealed class BackendSupervisor : IDisposable
                 {
                 }
 
-                SetActiveGeneration(null);
+                SetActiveGeneration(
+                    null);
             }
         }
     }
 
-    private async Task<WorkerGeneration> StartGenerationAsync(
-        ConfigurationSnapshot desired,
-        CancellationToken cancellationToken)
+    private async Task<WorkerGeneration>
+        StartGenerationAsync(
+            ConfigurationSnapshot desired,
+            CancellationToken cancellationToken)
     {
         long generation =
             Interlocked.Increment(
@@ -307,8 +338,9 @@ internal sealed class BackendSupervisor : IDisposable
                     desired.Configuration);
 
             using var handshakeCts =
-                CancellationTokenSource.CreateLinkedTokenSource(
-                    cancellationToken);
+                CancellationTokenSource
+                    .CreateLinkedTokenSource(
+                        cancellationToken);
 
             handshakeCts.CancelAfter(
                 WorkerHandshakeTimeout);
@@ -317,10 +349,12 @@ internal sealed class BackendSupervisor : IDisposable
                 handshakeCts.Token);
 
             var reader =
-                new StreamReader(pipe);
+                new StreamReader(
+                    pipe);
 
             var writer =
-                new StreamWriter(pipe)
+                new StreamWriter(
+                    pipe)
                 {
                     AutoFlush = true
                 };
@@ -331,12 +365,19 @@ internal sealed class BackendSupervisor : IDisposable
                     WorkerHandshakeTimeout,
                     cancellationToken);
 
-            if (hello.Type != WorkerProtocol.Hello ||
-                hello.Generation != generation)
+            if (hello.Type !=
+                    WorkerProtocol.Hello ||
+                hello.Generation !=
+                    generation)
             {
                 throw new InvalidDataException(
-                    "Backend worker returned an invalid handshake.");
+                    "Backend worker returned an invalid HELLO handshake.");
             }
+
+            await WaitForRunningAsync(
+                reader,
+                generation,
+                cancellationToken);
 
             Task<string?> completion =
                 MonitorWorkerAsync(
@@ -359,12 +400,71 @@ internal sealed class BackendSupervisor : IDisposable
         {
             if (process is not null)
             {
-                TryKill(process);
+                TryKill(
+                    process);
+
                 process.Dispose();
             }
 
             pipe.Dispose();
+
             throw;
+        }
+    }
+
+    private static async Task WaitForRunningAsync(
+        StreamReader reader,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        DateTime deadline =
+            DateTime.UtcNow +
+            WorkerStartupTimeout;
+
+        while (true)
+        {
+            TimeSpan remaining =
+                deadline -
+                DateTime.UtcNow;
+
+            if (remaining <= TimeSpan.Zero)
+            {
+                throw new TimeoutException(
+                    $"Backend generation {generation} did not reach RUNNING.");
+            }
+
+            WorkerEnvelope message =
+                await ReadMessageWithTimeoutAsync(
+                    reader,
+                    remaining,
+                    cancellationToken);
+
+            if (message.Generation !=
+                generation)
+            {
+                continue;
+            }
+
+            if (message.Type ==
+                WorkerProtocol.Running)
+            {
+                return;
+            }
+
+            if (message.Type ==
+                WorkerProtocol.Faulted)
+            {
+                throw new InvalidOperationException(
+                    message.Detail ??
+                    $"Backend generation {generation} faulted during startup.");
+            }
+
+            if (message.Type ==
+                WorkerProtocol.Stopped)
+            {
+                throw new InvalidOperationException(
+                    $"Backend generation {generation} stopped during startup.");
+            }
         }
     }
 
@@ -402,7 +502,8 @@ internal sealed class BackendSupervisor : IDisposable
 
         if (launchedByDotnet)
         {
-            info.FileName = processPath;
+            info.FileName =
+                processPath;
 
             if (currentArgs.Length == 0)
             {
@@ -415,7 +516,8 @@ internal sealed class BackendSupervisor : IDisposable
         }
         else
         {
-            info.FileName = processPath;
+            info.FileName =
+                processPath;
         }
 
         info.ArgumentList.Add(
@@ -445,7 +547,8 @@ internal sealed class BackendSupervisor : IDisposable
         info.ArgumentList.Add(
             configuration.DestinationMatch);
 
-        return Process.Start(info)
+        return Process.Start(
+                   info)
             ?? throw new InvalidOperationException(
                 "Failed to start backend worker process.");
     }
@@ -486,19 +589,22 @@ internal sealed class BackendSupervisor : IDisposable
                     $"Backend generation {generation} closed its control pipe.";
             }
 
-            if (message.Generation != generation)
+            if (message.Generation !=
+                generation)
             {
                 continue;
             }
 
-            if (message.Type == WorkerProtocol.Faulted)
+            if (message.Type ==
+                WorkerProtocol.Faulted)
             {
                 return
                     message.Detail ??
                     $"Backend generation {generation} reported a fault.";
             }
 
-            if (message.Type == WorkerProtocol.Stopped)
+            if (message.Type ==
+                WorkerProtocol.Stopped)
             {
                 return null;
             }
@@ -579,7 +685,8 @@ internal sealed class BackendSupervisor : IDisposable
                 process.Kill(
                     entireProcessTree: true);
 
-                process.WaitForExit(1000);
+                process.WaitForExit(
+                    1000);
             }
         }
         catch
@@ -632,7 +739,8 @@ internal sealed class BackendSupervisor : IDisposable
     {
         lock (_gate)
         {
-            _lastError = error;
+            _lastError =
+                error;
         }
 
         RaiseStateChanged();
@@ -646,9 +754,11 @@ internal sealed class BackendSupervisor : IDisposable
         lock (_gate)
         {
             changed =
-                _state != state;
+                _state !=
+                state;
 
-            _state = state;
+            _state =
+                state;
         }
 
         if (changed)
@@ -663,12 +773,13 @@ internal sealed class BackendSupervisor : IDisposable
             EventArgs.Empty);
 
     private static async Task DelayAsync(
+        TimeSpan delay,
         CancellationToken cancellationToken)
     {
         try
         {
             await Task.Delay(
-                ReconcilePeriod,
+                delay,
                 cancellationToken);
         }
         catch (OperationCanceledException)
@@ -693,31 +804,70 @@ internal sealed class BackendSupervisor : IDisposable
             StreamWriter writer,
             Task<string?> completion)
         {
-            Generation = generation;
-            RestartRevision = restartRevision;
-            Configuration = configuration;
-            Process = process;
-            Pipe = pipe;
-            Reader = reader;
-            Writer = writer;
-            Completion = completion;
+            Generation =
+                generation;
+
+            RestartRevision =
+                restartRevision;
+
+            Configuration =
+                configuration;
+
+            Process =
+                process;
+
+            Pipe =
+                pipe;
+
+            Reader =
+                reader;
+
+            Writer =
+                writer;
+
+            Completion =
+                completion;
         }
 
-        public long Generation { get; }
+        public long Generation
+        {
+            get;
+        }
 
-        public long RestartRevision { get; }
+        public long RestartRevision
+        {
+            get;
+        }
 
-        public RouteGenerationConfiguration Configuration { get; }
+        public RouteGenerationConfiguration Configuration
+        {
+            get;
+        }
 
-        public Process Process { get; }
+        public Process Process
+        {
+            get;
+        }
 
-        public NamedPipeServerStream Pipe { get; }
+        public NamedPipeServerStream Pipe
+        {
+            get;
+        }
 
-        public StreamReader Reader { get; }
+        public StreamReader Reader
+        {
+            get;
+        }
 
-        public StreamWriter Writer { get; }
+        public StreamWriter Writer
+        {
+            get;
+        }
 
-        public Task<string?> Completion { get; }
+        public Task<string?> Completion
+        {
+            get;
+        }
 
         public ValueTask DisposeAsync()
         {

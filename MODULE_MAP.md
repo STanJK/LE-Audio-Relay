@@ -10,6 +10,9 @@ This module map follows ownership rather than implementation technology.
 | `Shell/` | Own Windows tray lifetime and user interaction. |
 | `Settings/` | Own the small frontend-neutral Router configuration and immutable generation snapshots. |
 | `Supervision/` | Own automatic backend lifecycle policy, generation replacement, worker-process monitoring, and the local typed worker protocol. |
+| `Routing/` | Own one worker-local audio route generation: endpoint validation, Process Loopback source, persistent Buds render, and ordered route shutdown. |
+| `Timing/` | Own the current minimal SPSC PCM boundary and startup cushion/real-zero keepalive behavior. Clock synchronization is intentionally not implemented yet. |
+| `Telemetry/` | Own cheap worker-local counters with separate audible/silent drop semantics.
 | `Cli/` | Thin command-line adapter. It must not own router policy or audio behavior. |
 | `Legacy/V0.1/` | Frozen historical implementation and VF-KB evidence. Never a production dependency. |
 
@@ -64,9 +67,9 @@ Archived implementations and generated `bin/` / `obj/` trees must never become a
 | Module | Future responsibility |
 |---|---|
 | `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not own recovery policy. |
-| `Routing/` | One worker-local audio route generation and its ordered startup/shutdown. |
-| `Timing/` | SPSC boundary, occupancy observation, and later clock synchronization/control. |
-| `Telemetry/` | Cheap always-on route observations and worker status. |
+| `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not own recovery policy. |
+| `Timing/` future control | Drift observation, recentering, and clock synchronization on top of the existing PCM boundary. |
+| `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
 | `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
 
 ## Dependency direction

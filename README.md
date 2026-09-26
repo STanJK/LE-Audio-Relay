@@ -23,7 +23,7 @@ It establishes:
 - a current Round4 VF-KB model for the tray/worker architecture;
 - no dependency on NAudio or the Legacy V0.1 implementation yet.
 
-The worker currently exercises lifecycle/IPC only; audio code is the next layer after V0.20.
+Development after the frozen V0.20 milestone now reconnects real audio routing inside the disposable worker generation. The new Routing/Timing/Telemetry implementation is handwritten and does not import Legacy V0.1.
 
 ## Product semantics
 
