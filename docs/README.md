@@ -41,7 +41,7 @@ That distinction is deliberate. LE Audio behavior depends on the complete Window
 The current public-facing baseline is:
 
 ```text
-V0.21 Daily Test Candidate 1
+V0.21 Daily Test Candidate 2
 status: frozen candidate
 validation: in progress
 stable/public V0.21: not yet declared
