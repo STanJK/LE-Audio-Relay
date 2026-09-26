@@ -33,6 +33,7 @@
     <Compile Include="Shell\**\*.cs" />
     <Compile Include="Settings\**\*.cs" />
     <Compile Include="Supervision\**\*.cs" />
+    <Compile Include="Lifecycle\**\*.cs" />
     <Compile Include="Routing\**\*.cs" />
     <Compile Include="Timing\**\*.cs" />
     <Compile Include="Telemetry\**\*.cs" />

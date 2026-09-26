@@ -194,8 +194,27 @@ internal sealed class TrayApplicationContext :
                 ? $"Backend gen: {generation}"
                 : "Backend gen: none";
 
+        string stateText =
+            _supervisor.State switch
+            {
+                SupervisorState.WaitingForEndpoint =>
+                    $"Waiting for {_configuration.DestinationMatch}",
+
+                SupervisorState.TopologyBlocked =>
+                    _supervisor.LastError ??
+                    "Audio topology blocked",
+
+                SupervisorState.RecoveringFault =>
+                    _supervisor.LastError is string error
+                        ? $"Recovering: {error}"
+                        : "Recovering audio route",
+
+                _ =>
+                    _supervisor.State.ToString()
+            };
+
         _statusItem.Text =
-            $"State: {_supervisor.State} | " +
+            $"{stateText} | " +
             $"{backend} | " +
             $"Mode: {_configuration.Mode}";
 
@@ -205,15 +224,21 @@ internal sealed class TrayApplicationContext :
                 SupervisorState.Running =>
                     "LE Audio Router - Running",
 
+                SupervisorState.WaitingForEndpoint =>
+                    "LE Audio Router - Waiting for Buds",
+
+                SupervisorState.TopologyBlocked =>
+                    "LE Audio Router - Audio topology blocked",
+
                 SupervisorState.Starting =>
-                    "LE Audio Router - Starting backend",
+                    "LE Audio Router - Starting audio route",
 
                 SupervisorState.RestartRequested or
                 SupervisorState.Restarting =>
-                    "LE Audio Router - Restarting backend",
+                    "LE Audio Router - Restarting audio route",
 
-                SupervisorState.Faulted =>
-                    "LE Audio Router - Recovering backend",
+                SupervisorState.RecoveringFault =>
+                    "LE Audio Router - Recovering audio route",
 
                 SupervisorState.Stopped =>
                     "LE Audio Router - Stopped",

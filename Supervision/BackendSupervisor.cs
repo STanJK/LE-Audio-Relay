@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO.Pipes;
+using LEAudioRouter.Lifecycle;
 using LEAudioRouter.Settings;
 
 namespace LEAudioRouter.Supervision;
@@ -7,11 +8,9 @@ namespace LEAudioRouter.Supervision;
 internal sealed class BackendSupervisor :
     IDisposable
 {
-    private static readonly TimeSpan ReconcilePeriod =
-        TimeSpan.FromMilliseconds(500);
-
-    private static readonly TimeSpan RecoveryDelay =
-        TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan
+        TopologySafetyProbeInterval =
+            TimeSpan.FromSeconds(30);
 
     private static readonly TimeSpan WorkerHandshakeTimeout =
         TimeSpan.FromSeconds(5);
@@ -25,6 +24,15 @@ internal sealed class BackendSupervisor :
     private static readonly TimeSpan WorkerShutdownTimeout =
         TimeSpan.FromSeconds(2);
 
+    private static readonly TimeSpan[] RecoveryBackoff =
+    [
+        TimeSpan.FromSeconds(1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(5),
+        TimeSpan.FromSeconds(10),
+        TimeSpan.FromSeconds(30)
+    ];
+
     private readonly object _gate =
         new();
 
@@ -32,6 +40,11 @@ internal sealed class BackendSupervisor :
 
     private readonly CancellationTokenSource _lifetimeCts =
         new();
+
+    private readonly SemaphoreSlim _wakeSignal =
+        new(
+            initialCount: 0,
+            maxCount: 1);
 
     private SupervisorState _state =
         SupervisorState.Idle;
@@ -103,6 +116,8 @@ internal sealed class BackendSupervisor :
 
         PublishState(
             SupervisorState.Starting);
+
+        Wake();
     }
 
     public void RequestRestart()
@@ -114,6 +129,8 @@ internal sealed class BackendSupervisor :
 
         PublishState(
             SupervisorState.RestartRequested);
+
+        Wake();
     }
 
     public void SetMode(
@@ -140,12 +157,15 @@ internal sealed class BackendSupervisor :
         {
             PublishState(
                 SupervisorState.RestartRequested);
+
+            Wake();
         }
     }
 
     public void Dispose()
     {
         _lifetimeCts.Cancel();
+        Wake();
 
         Task? loop;
 
@@ -166,6 +186,7 @@ internal sealed class BackendSupervisor :
             }
         }
 
+        _wakeSignal.Dispose();
         _lifetimeCts.Dispose();
 
         PublishState(
@@ -178,38 +199,217 @@ internal sealed class BackendSupervisor :
         WorkerGeneration? active =
             null;
 
+        AudioEndpointObserver? observer =
+            null;
+
+        AudioEndpointProbe? probe =
+            null;
+
+        string? pendingWorkerFailure =
+            null;
+
+        int consecutiveFailures =
+            0;
+
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
+                if (observer is null ||
+                    probe is null)
+                {
+                    try
+                    {
+                        observer =
+                            new AudioEndpointObserver();
+
+                        observer.TopologyChanged +=
+                            OnEndpointTopologyChanged;
+
+                        probe =
+                            new AudioEndpointProbe();
+
+                        consecutiveFailures =
+                            0;
+
+                        SetLastError(
+                            null);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (observer is not null)
+                        {
+                            observer.TopologyChanged -=
+                                OnEndpointTopologyChanged;
+
+                            observer.Dispose();
+                            observer = null;
+                        }
+
+                        probe?.Dispose();
+                        probe = null;
+
+                        consecutiveFailures++;
+
+                        SetLastError(
+                            $"Endpoint observation unavailable: {ex.Message}");
+
+                        PublishState(
+                            SupervisorState.RecoveringFault);
+
+                        await WaitForWakeOrDelayAsync(
+                            GetRecoveryDelay(
+                                consecutiveFailures),
+                            cancellationToken);
+
+                        continue;
+                    }
+                }
+
                 ConfigurationSnapshot desired =
                     SnapshotConfiguration();
 
-                if (active is not null &&
-                    active.Completion.IsCompleted)
+                AudioEndpointSnapshot reality;
+
+                try
                 {
-                    string? failure =
-                        await ReadCompletionFailureAsync(
-                            active.Completion);
+                    reality =
+                        probe.Probe(
+                            desired.Configuration.DestinationMatch);
+                }
+                catch (Exception ex)
+                {
+                    consecutiveFailures++;
 
-                    await active.DisposeAsync();
+                    SetLastError(
+                        $"Endpoint probe failed: {ex.Message}");
 
-                    active = null;
+                    PublishState(
+                        SupervisorState.RecoveringFault);
 
-                    SetActiveGeneration(
-                        null);
-
-                    if (failure is not null)
+                    if (active is not null)
                     {
-                        SetLastError(
-                            failure);
+                        bool workerCompleted =
+                            await WaitForWorkerWakeOrDelayAsync(
+                                active,
+                                GetRecoveryDelay(
+                                    consecutiveFailures),
+                                cancellationToken);
 
-                        PublishState(
-                            SupervisorState.Faulted);
+                        if (workerCompleted)
+                        {
+                            pendingWorkerFailure =
+                                await CollectWorkerCompletionAsync(
+                                    active);
+
+                            await active.DisposeAsync();
+
+                            active = null;
+
+                            SetActiveGeneration(
+                                null);
+                        }
+                    }
+                    else
+                    {
+                        await WaitForWakeOrDelayAsync(
+                            GetRecoveryDelay(
+                                consecutiveFailures),
+                            cancellationToken);
                     }
 
-                    await DelayAsync(
-                        RecoveryDelay,
+                    continue;
+                }
+
+                if (reality.TargetAvailability ==
+                    TargetEndpointAvailability.Absent)
+                {
+                    pendingWorkerFailure =
+                        null;
+
+                    consecutiveFailures =
+                        0;
+
+                    SetLastError(
+                        null);
+
+                    if (active is not null)
+                    {
+                        await StopGenerationAsync(
+                            active,
+                            cancellationToken);
+
+                        active = null;
+
+                        SetActiveGeneration(
+                            null);
+                    }
+
+                    PublishState(
+                        SupervisorState.WaitingForEndpoint);
+
+                    await WaitForWakeOrDelayAsync(
+                        TopologySafetyProbeInterval,
+                        cancellationToken);
+
+                    continue;
+                }
+
+                bool topologyBlocked =
+                    reality.TargetAvailability ==
+                        TargetEndpointAvailability.Ambiguous ||
+                    !reality.DefaultRenderSafe;
+
+                if (topologyBlocked)
+                {
+                    pendingWorkerFailure =
+                        null;
+
+                    consecutiveFailures =
+                        0;
+
+                    SetLastError(
+                        reality.BlockingReason ??
+                        "Audio endpoint topology is not eligible for routing.");
+
+                    if (active is not null)
+                    {
+                        await StopGenerationAsync(
+                            active,
+                            cancellationToken);
+
+                        active = null;
+
+                        SetActiveGeneration(
+                            null);
+                    }
+
+                    PublishState(
+                        SupervisorState.TopologyBlocked);
+
+                    await WaitForWakeOrDelayAsync(
+                        TopologySafetyProbeInterval,
+                        cancellationToken);
+
+                    continue;
+                }
+
+                if (pendingWorkerFailure is not null)
+                {
+                    consecutiveFailures++;
+
+                    SetLastError(
+                        pendingWorkerFailure);
+
+                    pendingWorkerFailure =
+                        null;
+
+                    PublishState(
+                        SupervisorState.RecoveringFault);
+
+                    await WaitForWakeOrDelayAsync(
+                        GetRecoveryDelay(
+                            consecutiveFailures),
                         cancellationToken);
 
                     continue;
@@ -249,6 +449,9 @@ internal sealed class BackendSupervisor :
                                 desired,
                                 cancellationToken);
 
+                        consecutiveFailures =
+                            0;
+
                         SetActiveGeneration(
                             active.Generation);
 
@@ -265,23 +468,43 @@ internal sealed class BackendSupervisor :
                     }
                     catch (Exception ex)
                     {
+                        consecutiveFailures++;
+
                         SetLastError(
                             ex.Message);
 
                         PublishState(
-                            SupervisorState.Faulted);
+                            SupervisorState.RecoveringFault);
 
-                        await DelayAsync(
-                            RecoveryDelay,
+                        await WaitForWakeOrDelayAsync(
+                            GetRecoveryDelay(
+                                consecutiveFailures),
                             cancellationToken);
 
                         continue;
                     }
                 }
 
-                await DelayAsync(
-                    ReconcilePeriod,
-                    cancellationToken);
+                bool completed =
+                    await WaitForWorkerOrWakeAsync(
+                        active,
+                        cancellationToken);
+
+                if (!completed)
+                {
+                    continue;
+                }
+
+                pendingWorkerFailure =
+                    await CollectWorkerCompletionAsync(
+                        active);
+
+                await active.DisposeAsync();
+
+                active = null;
+
+                SetActiveGeneration(
+                    null);
             }
         }
         finally
@@ -301,7 +524,27 @@ internal sealed class BackendSupervisor :
                 SetActiveGeneration(
                     null);
             }
+
+            if (observer is not null)
+            {
+                observer.TopologyChanged -=
+                    OnEndpointTopologyChanged;
+
+                observer.Dispose();
+            }
+
+            probe?.Dispose();
         }
+    }
+
+    private void OnEndpointTopologyChanged(
+        object? sender,
+        EventArgs e)
+    {
+        // NAudio is configured to deliver this callback on the Windows
+        // Core Audio worker thread. Never enumerate endpoints or run policy
+        // here; only wake the supervisor.
+        Wake();
     }
 
     private async Task<WorkerGeneration>
@@ -675,23 +918,16 @@ internal sealed class BackendSupervisor :
         await generation.DisposeAsync();
     }
 
-    private static void TryKill(
-        Process process)
+    private static async Task<string>
+        CollectWorkerCompletionAsync(
+            WorkerGeneration generation)
     {
-        try
-        {
-            if (!process.HasExited)
-            {
-                process.Kill(
-                    entireProcessTree: true);
+        string? failure =
+            await ReadCompletionFailureAsync(
+                generation.Completion);
 
-                process.WaitForExit(
-                    1000);
-            }
-        }
-        catch
-        {
-        }
+        return failure ??
+               $"Backend generation {generation.Generation} stopped unexpectedly.";
     }
 
     private static async Task<string?>
@@ -712,6 +948,128 @@ internal sealed class BackendSupervisor :
         }
     }
 
+    private async Task<bool> WaitForWorkerOrWakeAsync(
+        WorkerGeneration generation,
+        CancellationToken cancellationToken)
+    {
+        using var waitCts =
+            CancellationTokenSource
+                .CreateLinkedTokenSource(
+                    cancellationToken);
+
+        Task wakeTask =
+            _wakeSignal.WaitAsync(
+                waitCts.Token);
+
+        Task completed =
+            await Task.WhenAny(
+                generation.Completion,
+                wakeTask);
+
+        waitCts.Cancel();
+
+        await IgnoreCancellationAsync(
+            wakeTask);
+
+        return ReferenceEquals(
+            completed,
+            generation.Completion);
+    }
+
+    private async Task<bool>
+        WaitForWorkerWakeOrDelayAsync(
+            WorkerGeneration generation,
+            TimeSpan delay,
+            CancellationToken cancellationToken)
+    {
+        using var waitCts =
+            CancellationTokenSource
+                .CreateLinkedTokenSource(
+                    cancellationToken);
+
+        Task wakeTask =
+            _wakeSignal.WaitAsync(
+                waitCts.Token);
+
+        Task delayTask =
+            Task.Delay(
+                delay,
+                waitCts.Token);
+
+        Task completed =
+            await Task.WhenAny(
+                generation.Completion,
+                wakeTask,
+                delayTask);
+
+        waitCts.Cancel();
+
+        await IgnoreCancellationAsync(
+            wakeTask);
+
+        await IgnoreCancellationAsync(
+            delayTask);
+
+        return ReferenceEquals(
+            completed,
+            generation.Completion);
+    }
+
+    private async Task WaitForWakeOrDelayAsync(
+        TimeSpan delay,
+        CancellationToken cancellationToken)
+    {
+        using var waitCts =
+            CancellationTokenSource
+                .CreateLinkedTokenSource(
+                    cancellationToken);
+
+        Task wakeTask =
+            _wakeSignal.WaitAsync(
+                waitCts.Token);
+
+        Task delayTask =
+            Task.Delay(
+                delay,
+                waitCts.Token);
+
+        await Task.WhenAny(
+            wakeTask,
+            delayTask);
+
+        waitCts.Cancel();
+
+        await IgnoreCancellationAsync(
+            wakeTask);
+
+        await IgnoreCancellationAsync(
+            delayTask);
+    }
+
+    private static async Task IgnoreCancellationAsync(
+        Task task)
+    {
+        try
+        {
+            await task;
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private static TimeSpan GetRecoveryDelay(
+        int consecutiveFailures)
+    {
+        int index =
+            Math.Clamp(
+                consecutiveFailures - 1,
+                0,
+                RecoveryBackoff.Length - 1);
+
+        return RecoveryBackoff[index];
+    }
+
     private ConfigurationSnapshot SnapshotConfiguration()
     {
         lock (_gate)
@@ -719,6 +1077,21 @@ internal sealed class BackendSupervisor :
             return new ConfigurationSnapshot(
                 _configuration.Snapshot(),
                 _restartRevision);
+        }
+    }
+
+    private void Wake()
+    {
+        try
+        {
+            _wakeSignal.Release();
+        }
+        catch (SemaphoreFullException)
+        {
+            // Coalesce topology/configuration wake-ups.
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 
@@ -772,17 +1145,21 @@ internal sealed class BackendSupervisor :
             this,
             EventArgs.Empty);
 
-    private static async Task DelayAsync(
-        TimeSpan delay,
-        CancellationToken cancellationToken)
+    private static void TryKill(
+        Process process)
     {
         try
         {
-            await Task.Delay(
-                delay,
-                cancellationToken);
+            if (!process.HasExited)
+            {
+                process.Kill(
+                    entireProcessTree: true);
+
+                process.WaitForExit(
+                    1000);
+            }
         }
-        catch (OperationCanceledException)
+        catch
         {
         }
     }
