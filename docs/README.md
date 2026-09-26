@@ -13,6 +13,8 @@ LE Audio Router documentation is split by audience and question rather than by s
 | [Troubleshooting](TROUBLESHOOTING.md) | Diagnose startup, endpoint, reconnect, or power-cycle problems |
 | [Architecture](ARCHITECTURE.md) | Inspect ownership boundaries, process roles, and recovery semantics |
 | [Project history](PROJECT_HISTORY.md) | Follow the evolution from V0.1 to the V0.21 daily-test candidate |
+| [Community and Microsoft publishing](COMMUNITY_AND_MICROSOFT.md) | Reuse the evidence accurately in articles, reports, and Microsoft channels |
+| [Public release checklist](PUBLIC_RELEASE_CHECKLIST.md) | Track what must be finished before formal V0.21 |
 
 ## Architecture decisions
 
