@@ -12,8 +12,8 @@ The goal is to make it clear which statements are:
 The current frozen candidate is:
 
 ```text
-V0.21 Daily Test Candidate 1
-runtime baseline: 326fa42cf2a6069c97ab11c9a60e635b4481c1c0
+V0.21 Daily Test Candidate 2
+runtime baseline: 1e1e14608afafd7afef2f43084e434b1c67c018a
 status: full daily-use validation in progress
 ```
 
