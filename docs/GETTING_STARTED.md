@@ -62,6 +62,64 @@ Do not use:
 
 The sacrificial endpoint does not need to be audible. It only needs to remain a valid Windows render target for ordinary applications.
 
+## Daily 2 device-selection limitation
+
+> [!WARNING]
+> **The prebuilt v0.21.0-daily.2 EXE currently targets Samsung Galaxy Buds3 Pro by friendly-name match.**
+
+The current default source configuration is:
+
+```csharp
+public string DestinationMatch { get; set; } =
+    "Galaxy Buds3 Pro";
+```
+
+That means the prebuilt Daily 2 binary expects exactly one active render endpoint whose FriendlyName contains:
+
+```text
+Galaxy Buds3 Pro
+```
+
+If you use a different LE Audio device, the prebuilt EXE will normally remain in `WaitingForEndpoint`.
+
+### Advanced users: retarget from source
+
+You can already test another LE Audio render endpoint by editing:
+
+```text
+Settings/RelayConfiguration.cs
+```
+
+For example:
+
+```csharp
+public string DestinationMatch { get; set; } =
+    "LinkBuds S";
+```
+
+Then rebuild:
+
+```powershell
+dotnet build .\LEAudioRelay.csproj -c Release
+```
+
+The resolver requires exactly one **Active render endpoint** whose FriendlyName contains the configured string, so choose a substring that uniquely identifies the desired destination.
+
+To inspect present Windows audio endpoints from PowerShell, a useful built-in starting point is:
+
+```powershell
+Get-PnpDevice -Class AudioEndpoint -PresentOnly |
+    Select-Object Status,FriendlyName,InstanceId
+```
+
+This is for inspection only; the current Relay still resolves the final destination through Core Audio at runtime.
+
+The internal worker process accepts a `--dest` argument, but it also requires supervisor-owned `--pipe` and `--generation` values. It is **not a supported standalone user CLI in Daily 2**.
+
+A simple first-run GUI for selecting the sacrificial/default endpoint and final destination is planned for the next candidate.
+
+---
+
 ## Verify Windows LE Audio first
 
 Before testing the router, confirm native LE Audio works at all.
