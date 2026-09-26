@@ -1,7 +1,7 @@
 using System.Reflection;
 using System.Text;
 
-namespace LEAudioRouter.Telemetry;
+namespace LEAudioRelay.Telemetry;
 
 /// <summary>
 /// Low-volume persistent lifecycle journal.
@@ -21,7 +21,7 @@ internal sealed class LifecycleEventLog
             Path.Combine(
                 Environment.GetFolderPath(
                     Environment.SpecialFolder.LocalApplicationData),
-                "LEAudioRouter",
+                "LEAudioRelay",
                 "logs");
     }
 

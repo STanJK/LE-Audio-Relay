@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace LEAudioRouter.Supervision;
+namespace LEAudioRelay.Supervision;
 
 internal static class WorkerProtocol
 {

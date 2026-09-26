@@ -1,7 +1,7 @@
-using LEAudioRouter.Timing;
+using LEAudioRelay.Timing;
 using NAudio.Wave;
 
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal sealed class RouteRenderProvider :
     IWaveProvider

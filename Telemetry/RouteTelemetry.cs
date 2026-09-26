@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Telemetry;
+namespace LEAudioRelay.Telemetry;
 
 internal sealed class RouteTelemetry
 {

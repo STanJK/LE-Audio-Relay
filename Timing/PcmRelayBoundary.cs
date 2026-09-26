@@ -1,6 +1,6 @@
-using LEAudioRouter.Telemetry;
+using LEAudioRelay.Telemetry;
 
-namespace LEAudioRouter.Timing;
+namespace LEAudioRelay.Timing;
 
 internal sealed class PcmRelayBoundary
 {

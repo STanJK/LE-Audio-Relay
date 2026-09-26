@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Supervision;
+namespace LEAudioRelay.Supervision;
 
 internal enum SupervisorState
 {

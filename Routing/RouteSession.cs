@@ -1,10 +1,10 @@
-using LEAudioRouter.Settings;
-using LEAudioRouter.Telemetry;
-using LEAudioRouter.Timing;
+using LEAudioRelay.Settings;
+using LEAudioRelay.Telemetry;
+using LEAudioRelay.Timing;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal sealed class RouteSession :
     IAsyncDisposable
