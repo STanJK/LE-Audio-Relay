@@ -382,7 +382,7 @@ If a runtime defect is found:
 frozen daily candidate
     stays unchanged
 
-round4 development branch
+main
     receives the fix
 
 new candidate
