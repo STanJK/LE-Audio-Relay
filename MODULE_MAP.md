@@ -13,6 +13,26 @@ This module map follows ownership rather than implementation technology.
 | `Cli/` | Thin command-line adapter. It must not own router policy or audio behavior. |
 | `Legacy/V0.1/` | Frozen historical implementation and VF-KB evidence. Never a production dependency. |
 
+## Build boundary
+
+The root project disables the SDK's recursive default C# item discovery and explicitly compiles only the Round4 production modules.
+
+Therefore:
+
+```text
+LEAudioRouter.csproj
+    includes Program.cs
+    includes Host/**
+    includes Shell/**
+    includes Settings/**
+    includes Supervision/**
+    includes Cli/**
+
+    DOES NOT include Legacy/**
+```
+
+This is an architectural invariant, not only a build workaround: archived implementations and their generated `bin/` / `obj/` trees must never become accidental dependencies of the canonical application.
+
 ## Reserved next modules
 
 These are architectural slots, not implemented code yet.

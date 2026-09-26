@@ -3,7 +3,7 @@ using System.Text;
 
 namespace LEAudioRouter.Host;
 
-internal static partial class ConsoleBridge
+internal static class ConsoleBridge
 {
     private const uint AttachParentProcess = 0xFFFFFFFF;
 
@@ -34,7 +34,7 @@ internal static partial class ConsoleBridge
             });
     }
 
-    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
-    private static partial bool AttachConsole(uint processId);
+    private static extern bool AttachConsole(uint processId);
 }
