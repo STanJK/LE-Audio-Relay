@@ -171,10 +171,22 @@ The current Timing layer contains `ProvisionalPositiveDriftGuard`.
 
 It is explicitly not a clock synchronizer. Its daily-use purpose is only to prevent slow positive producer/consumer drift from leaving the ring permanently full.
 
+It controls the post-render residual queue around the 10 ms target cushion:
+
+```text
+target residual       10 ms
+gradual trim stops    11 ms
+gradual trim starts   12 ms
+hard recenter         20 ms
+physical capacity     80 ms
+```
+
 It corrects in this order:
 
-1. suppress excess source-declared silent frames above the target cushion;
-2. during uninterrupted audio, discard one stereo frame every four render callbacks only while fill is above the high-water band;
-3. if fill reaches the emergency band near capacity, hard-trim back to the high-water band.
+1. suppress already-accumulated excess during source-declared silence;
+2. during uninterrupted audio, discard one complete stereo frame every eight render callbacks only while post-render residual fill remains above the 11–12 ms hysteresis band;
+3. if residual fill reaches 20 ms, hard-recenter directly to the 10 ms target.
+
+The 80 ms ring size is physical safety headroom, not a normal operating latency target.
 
 Intentional correction frames have separate telemetry counters and are not counted as runtime drop/overflow.
