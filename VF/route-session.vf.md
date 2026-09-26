@@ -15,7 +15,7 @@ exit "A running route remains owned by the worker until shutdown or route failur
 
 <!--vf:source
 id "route"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Routing/RouteSession.cs"
 symbol "RouteSession"
@@ -23,7 +23,7 @@ symbol "RouteSession"
 
 <!--vf:source
 id "capture"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Routing/ProcessLoopbackSource.cs"
 symbol "ProcessLoopbackSource"
@@ -31,7 +31,7 @@ symbol "ProcessLoopbackSource"
 
 <!--vf:source
 id "render"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Routing/PersistentRenderSink.cs"
 symbol "PersistentRenderSink"
@@ -39,7 +39,7 @@ symbol "PersistentRenderSink"
 
 <!--vf:source
 id "format"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Routing/AudioFormatPolicy.cs"
 symbol "AudioFormatPolicy"
@@ -47,7 +47,7 @@ symbol "AudioFormatPolicy"
 
 <!--vf:source
 id "category"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
 path "Routing/RenderCategoryPolicy.cs"
 symbol "RenderCategoryPolicy"

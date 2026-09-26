@@ -15,7 +15,7 @@ exit "A healthy route worker remains current, or the failed/stale generation is 
 
 <!--vf:source
 id "supervisor"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
@@ -23,7 +23,7 @@ symbol "BackendSupervisor"
 
 <!--vf:source
 id "worker"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Host/BackendWorker.cs"
 symbol "BackendWorker"
@@ -31,7 +31,7 @@ symbol "BackendWorker"
 
 <!--vf:source
 id "protocol"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Supervision/WorkerProtocol.cs"
 symbol "WorkerProtocol"
@@ -39,7 +39,7 @@ symbol "WorkerProtocol"
 
 <!--vf:source
 id "generation-config"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Settings/RouteGenerationConfiguration.cs"
 symbol "RouteGenerationConfiguration"
@@ -47,7 +47,7 @@ symbol "RouteGenerationConfiguration"
 
 <!--vf:source
 id "adr"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
