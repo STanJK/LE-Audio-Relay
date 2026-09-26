@@ -81,12 +81,7 @@ git clone https://github.com/STanJK/LE-Audio-Relay.git
 cd LE-Audio-Relay
 ```
 
-For the current development documentation branch:
-
-```powershell
-git fetch origin
-git switch docs/public-readme
-```
+The default `main` branch is the canonical development and documentation baseline.
 
 For normal local testing, build Release:
 
