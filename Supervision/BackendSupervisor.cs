@@ -1245,13 +1245,13 @@ internal sealed class BackendSupervisor :
         }
 
         if (current.SuspendCount !=
-            old.SuspendCount &&
-            current.IsSuspended)
+            old.SuspendCount)
         {
             _lifecycleLog.Write(
                 "POWER_SUSPEND",
                 $"suspendCount={current.SuspendCount}; " +
-                $"revision={current.Revision}");
+                $"revision={current.Revision}; " +
+                $"reconciledWhileSuspended={current.IsSuspended}");
         }
 
         if (current.Revision !=
