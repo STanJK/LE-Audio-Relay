@@ -8,16 +8,16 @@
     <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
 
-    <AssemblyName>LEAudioRouter</AssemblyName>
-    <RootNamespace>LEAudioRouter</RootNamespace>
+    <AssemblyName>LEAudioRelay</AssemblyName>
+    <RootNamespace>LEAudioRelay</RootNamespace>
 
-    <!-- V0.20 is frozen on release/v0.20; this branch continues Round4. -->
-    <Version>0.20.0</Version>
-    <AssemblyVersion>0.20.0.0</AssemblyVersion>
-    <FileVersion>0.20.0.0</FileVersion>
-    <InformationalVersion>V0.20+round4-dev</InformationalVersion>
-    <Product>LE Audio Router</Product>
-    <Description>Windows LE Audio routing shell and supervised route host.</Description>
+    <!-- Main tracks the next V0.21 development baseline. -->
+    <Version>0.21.0-dev</Version>
+    <AssemblyVersion>0.21.0.0</AssemblyVersion>
+    <FileVersion>0.21.0.0</FileVersion>
+    <InformationalVersion>V0.21+main-dev</InformationalVersion>
+    <Product>LE Audio Relay</Product>
+    <Description>Windows Bluetooth LE Audio keepalive relay and supervised route host.</Description>
 
     <!--
       Round4 is a clean rewrite. Disable the SDK's recursive **/*.cs glob so
