@@ -112,6 +112,13 @@ internal sealed class BackendSupervisor : IDisposable
     {
         lock (_gate)
         {
+            if (enabled && !_desiredState.Enabled)
+            {
+                // Re-enabling is an explicit human request for a fresh
+                // generation even if a prior no-auto-reconnect fault latched.
+                _restartGeneration++;
+            }
+
             _desiredState.Enabled = enabled;
         }
 
@@ -187,6 +194,7 @@ internal sealed class BackendSupervisor : IDisposable
         CancellationToken cancellationToken)
     {
         WorkerGeneration? active = null;
+        long? blockedRestartGeneration = null;
 
         try
         {
@@ -233,6 +241,9 @@ internal sealed class BackendSupervisor : IDisposable
 
                     if (!desired.AutoReconnect)
                     {
+                        blockedRestartGeneration =
+                            desired.RestartGeneration;
+
                         PublishState(
                             SupervisorState.Faulted);
 
@@ -263,6 +274,22 @@ internal sealed class BackendSupervisor : IDisposable
 
                 if (active is null)
                 {
+                    bool restartIsBlocked =
+                        !desired.AutoReconnect &&
+                        blockedRestartGeneration ==
+                            desired.RestartGeneration;
+
+                    if (restartIsBlocked)
+                    {
+                        PublishState(
+                            SupervisorState.Faulted);
+
+                        await DelayAsync(
+                            cancellationToken);
+
+                        continue;
+                    }
+
                     PublishState(
                         SupervisorState.Starting);
 
@@ -276,6 +303,7 @@ internal sealed class BackendSupervisor : IDisposable
                         SetActiveGeneration(
                             active.Generation);
 
+                        blockedRestartGeneration = null;
                         SetLastError(null);
 
                         PublishState(
@@ -294,6 +322,9 @@ internal sealed class BackendSupervisor : IDisposable
 
                         if (!desired.AutoReconnect)
                         {
+                            blockedRestartGeneration =
+                                desired.RestartGeneration;
+
                             await DelayAsync(
                                 cancellationToken);
 

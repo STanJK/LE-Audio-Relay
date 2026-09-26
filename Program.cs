@@ -14,7 +14,7 @@ internal static class Program
         return mode switch
         {
             ProcessMode.Cli => CliEntry.Run(args),
-            ProcessMode.BackendWorker => BackendWorkerPlaceholder.Run(args),
+            ProcessMode.BackendWorker => BackendWorker.Run(args),
             _ => RunTray()
         };
     }

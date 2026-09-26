@@ -3,7 +3,7 @@ using LEAudioRouter.Supervision;
 
 namespace LEAudioRouter.Host;
 
-internal static class BackendWorkerPlaceholder
+internal static class BackendWorker
 {
     public static int Run(string[] args)
     {
@@ -85,6 +85,16 @@ internal static class BackendWorkerPlaceholder
 
                 if (command.Type == WorkerProtocol.Shutdown)
                 {
+                    heartbeatCts.Cancel();
+
+                    try
+                    {
+                        await heartbeatTask;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                    }
+
                     await SendAsync(
                         writer,
                         new WorkerEnvelope(
