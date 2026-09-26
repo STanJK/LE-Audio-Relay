@@ -11,11 +11,11 @@
     <AssemblyName>LEAudioRouter</AssemblyName>
     <RootNamespace>LEAudioRouter</RootNamespace>
 
-    <!-- V0.20 is frozen on release/v0.20; this branch continues Round4. -->
-    <Version>0.20.0</Version>
-    <AssemblyVersion>0.20.0.0</AssemblyVersion>
-    <FileVersion>0.20.0.0</FileVersion>
-    <InformationalVersion>V0.20+round4-dev</InformationalVersion>
+    <!-- V0.21 daily-use candidate: frozen for full dogfood validation, not a stable release. -->
+    <Version>0.21.0-daily.1</Version>
+    <AssemblyVersion>0.21.0.0</AssemblyVersion>
+    <FileVersion>0.21.0.0</FileVersion>
+    <InformationalVersion>V0.21 Daily Test Candidate 1</InformationalVersion>
     <Product>LE Audio Router</Product>
     <Description>Windows LE Audio routing shell and supervised route host.</Description>
 
