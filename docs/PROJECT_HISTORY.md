@@ -1,6 +1,6 @@
 # Project history
 
-LE Audio Router did not start as a general audio-router project.
+LE Audio Relay did not start as a general audio-router project.
 
 It started as a sequence of experiments around one Windows LE Audio lifecycle problem and gradually became a supervised daily-use tool.
 
@@ -224,7 +224,7 @@ Any worker created under an older power revision is replaced.
 The Tray records low-volume lifecycle evidence under:
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\
+%LOCALAPPDATA%\LEAudioRelay\logs\
 ```
 
 The journal intentionally avoids high-frequency warning spam.

@@ -2,7 +2,7 @@
 
 This page is not runtime documentation.
 
-It describes how to communicate LE Audio Router and the underlying Windows LE Audio observations without mixing product promotion, platform facts, and unproven root-cause claims.
+It describes how to communicate LE Audio Relay and the underlying Windows LE Audio observations without mixing product promotion, platform facts, and unproven root-cause claims.
 
 ---
 
@@ -14,7 +14,7 @@ The project has three distinct public goals.
 
 Message:
 
-> Windows LE Audio can work well, but some users may hit lifecycle instability. LE Audio Router is a focused user-mode workaround/experiment for keeping one destination render generation alive.
+> Windows LE Audio can work well, but some users may hit lifecycle instability. LE Audio Relay is a focused user-mode workaround/experiment for keeping one destination render generation alive.
 
 Best channels:
 
@@ -270,7 +270,7 @@ A reasonable sequence is:
 3. use Microsoft Q&A / Tech Community / Feedback channels to surface the reproducible Windows behavior;
 4. contribute to Microsoft Learn documentation only where the project reveals a genuine documentation gap or where the community-content path accepts the article scope.
 
-A Microsoft-facing article should teach Windows/LE Audio behavior first and mention LE Audio Router as the reproducible experiment/tool, not read as product advertising.
+A Microsoft-facing article should teach Windows/LE Audio behavior first and mention LE Audio Relay as the reproducible experiment/tool, not read as product advertising.
 
 ---
 
@@ -290,7 +290,7 @@ Could cover:
 - distinction between Bluetooth Classic and LE Audio;
 - how Process Loopback can be used for controlled audio experiments.
 
-LE Audio Router can appear as a case study rather than the entire article.
+LE Audio Relay can appear as a case study rather than the entire article.
 
 ### "Building a Process Loopback audio relay on Windows"
 

@@ -1,10 +1,10 @@
-# LE Audio Router — Architecture
+# LE Audio Relay — Architecture
 
 Status: **Round4 active architecture**
 
 ## Product semantics
 
-The user starts LE Audio Router because they want routing to run.
+The user starts LE Audio Relay because they want routing to run.
 
 Therefore:
 
@@ -23,7 +23,7 @@ The user-facing configuration surface is currently:
 
 ## Runtime process model
 
-LE Audio Router intentionally uses exactly two runtime process roles:
+LE Audio Relay intentionally uses exactly two runtime process roles:
 
 ```mermaid
 flowchart TD
@@ -239,7 +239,7 @@ route generation lifetime
 A low-volume journal is written to:
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\lifecycle-YYYY-MM-DD.log
+%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
 ```
 
 Recorded events are restricted to lifecycle transitions such as:

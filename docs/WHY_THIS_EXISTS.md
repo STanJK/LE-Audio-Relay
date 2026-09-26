@@ -1,6 +1,6 @@
 # Why this exists
 
-LE Audio Router started as a practical response to one repeatable Windows Bluetooth LE Audio failure mode.
+LE Audio Relay started as a practical response to one repeatable Windows Bluetooth LE Audio failure mode.
 
 It is useful to separate the story into two parts:
 
@@ -127,7 +127,7 @@ The next problem was how to keep the Buds render stream alive while still lettin
 
 Windows provides Process Loopback capture that can include or exclude a target process tree.
 
-LE Audio Router uses:
+LE Audio Relay uses:
 
 ```text
 PROCESS_LOOPBACK_MODE_EXCLUDE_TARGET_PROCESS_TREE

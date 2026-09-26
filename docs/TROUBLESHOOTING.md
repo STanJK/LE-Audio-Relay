@@ -4,7 +4,7 @@ This guide covers the current Round4 / V0.21 daily-test architecture.
 
 Start with the simplest rule:
 
-> First make native Windows LE Audio work. Then debug LE Audio Router.
+> First make native Windows LE Audio work. Then debug LE Audio Relay.
 
 ---
 
@@ -69,7 +69,7 @@ TopologyBlocked
 
 The sacrificial endpoint is supposed to receive the application's Windows render stream.
 
-LE Audio Router should simultaneously capture that mix and forward it to the Buds.
+LE Audio Relay should simultaneously capture that mix and forward it to the Buds.
 
 If you hear only the sacrificial sink:
 
@@ -139,7 +139,7 @@ disconnect
 Check processes:
 
 ```powershell
-Get-CimInstance Win32_Process -Filter "Name='LEAudioRouter.exe'" |
+Get-CimInstance Win32_Process -Filter "Name='LEAudioRelay.exe'" |
     Select-Object ProcessId,ParentProcessId,CommandLine
 ```
 
@@ -242,13 +242,13 @@ Report long-run latency growth if it is clearly reproducible.
 Expected directory:
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\
+%LOCALAPPDATA%\LEAudioRelay\logs\
 ```
 
 Open:
 
 ```powershell
-explorer "$env:LOCALAPPDATA\LEAudioRouter\logs"
+explorer "$env:LOCALAPPDATA\LEAudioRelay\logs"
 ```
 
 Logging is best-effort and must not break routing. An I/O failure can therefore prevent log output without crashing the router.
@@ -285,7 +285,7 @@ Reference:
 
 https://support.microsoft.com/en-us/windows/hardware/bluetooth/check-if-a-windows-11-device-supports-bluetooth-low-energy-audio
 
-LE Audio Router cannot work around missing platform LE Audio support.
+LE Audio Relay cannot work around missing platform LE Audio support.
 
 ---
 
@@ -306,7 +306,7 @@ Use the smallest reset that works:
 
 1. **Restart audio route**
 2. disconnect/reconnect the Buds
-3. exit/restart LE Audio Router
+3. exit/restart LE Audio Relay
 4. toggle/re-establish the Windows audio endpoint
 5. reboot Windows
 
