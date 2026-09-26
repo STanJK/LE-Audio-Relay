@@ -1,12 +1,52 @@
 # LE Audio Router
 
-**Current frozen milestone: V0.20 — first stabilized Tray form**
+**Current candidate: V0.21 Daily Test Candidate 1 — full daily-use validation in progress**
 
 Round4 is a clean architectural rewrite of the Windows LE Audio relay.
 
 The previous known-good Process Loopback implementation is frozen under [Legacy/V0.1](Legacy/V0.1/README.md). New production code must not depend on the legacy archive.
 
-## V0.20 milestone
+## V0.21 Daily Test Candidate 1
+
+This branch is a **frozen daily-use candidate**, not yet a stable/public release.
+
+Its runtime code is pinned to development baseline:
+
+`326fa42cf2a6069c97ab11c9a60e635b4481c1c0`
+
+The candidate is currently undergoing full daily-use validation, including repeated endpoint reconnect, Windows suspend/resume, long-running audio, and observation of the provisional positive-drift guard.
+
+A failure found during this validation should produce a new candidate or development fix rather than rewriting this frozen baseline.
+
+### Candidate scope
+
+- real Process Loopback → Buds route;
+- disposable worker generation;
+- event-driven endpoint disconnect/reconnect;
+- Windows suspend/resume via PowerRevision invalidation;
+- lifecycle-only persistent journal;
+- provisional positive-drift guard centered on a 10 ms residual cushion;
+- GameEffects as the daily default.
+
+### Validation status
+
+Already established before this candidate:
+- real route startup and audio output;
+- endpoint disconnect enters WaitingForEndpoint with zero worker churn;
+- endpoint reconnect creates one fresh generation;
+- topology blocking/recovery;
+- mode changes replace one generation.
+
+**Still under full daily testing in this candidate:**
+- repeated sleep/resume over normal daily use;
+- multi-hour and multi-day route stability;
+- subjective artifact check for gradual/hard drift correction;
+- lifecycle log quality and absence of spam;
+- interaction between power cycles, reconnects, mode changes, and worker replacement.
+
+Do not describe this candidate as stable until that validation is complete.
+
+## Historical V0.20 milestone
 
 V0.20 is the first stabilized Tray-shaped application baseline. It freezes the product/lifecycle shell before real audio routing is reintroduced.
 
@@ -84,16 +124,16 @@ flowchart TD
 
 ## Version metadata
 
-The frozen V0.20 release embeds:
+This frozen daily-test branch embeds:
 
 ```text
-Version              0.20.0
-AssemblyVersion      0.20.0.0
-FileVersion          0.20.0.0
-InformationalVersion V0.20
+Version              0.21.0-daily.1
+AssemblyVersion      0.21.0.0
+FileVersion          0.21.0.0
+InformationalVersion V0.21 Daily Test Candidate 1
 ```
 
-The active Round4 development branch identifies itself as `V0.20+round4-dev`.
+This is intentionally a prerelease identity. Formal V0.21 is reserved for the candidate that completes full daily-use validation.
 
 ## Build
 
