@@ -14,6 +14,13 @@
 >
 > The current architecture is usable enough for sustained daily testing, but full multi-day validation is still in progress. It is **not yet a stable release**, and there are currently **no prebuilt binaries or installer**.
 
+> [!NOTE]
+> **Development note — VibeFactory integration**
+>
+> LE Audio Router is being actively developed with an embedded integration to **VibeFactory**, a separate development system/library that is currently **private and not ready for public release**.
+>
+> VibeFactory is **not required to build or run LE Audio Router**, and its private implementation details are intentionally not documented here. Public project documentation only acknowledges that the integration exists and has been used in the real development process.
+
 LE Audio Router is a user-mode Windows audio relay built for a specific class of Bluetooth LE Audio stability problems observed during real daily use.
 
 Instead of making the LE Audio earbuds the Windows default output directly, normal applications render to a separate physical output endpoint. LE Audio Router captures that system mix with **Process Loopback**, forwards it to the LE Audio endpoint, and keeps the destination render stream continuously alive — including during silence, when it renders real zero PCM.
