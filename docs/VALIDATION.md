@@ -60,12 +60,33 @@ The project does not currently have enough evidence to advertise support.
 | Repeated multi-day power cycles | 🧪 In progress | Candidate purpose |
 | Provisional drift guard | 🧪 In progress | Needs long-run and subjective artifact evidence |
 | Lifecycle journal usefulness | 🧪 In progress | Needs multi-day evidence |
-| Galaxy Buds3 Pro | ✅ Primary validated target | Current daily device |
-| Sony LinkBuds S | 🕘 Historical | Earlier project baseline |
-| Other LE Audio earbuds/headsets | ⚪ Not claimed | Community testing needed |
+| Galaxy Buds3 Pro | ✅ Primary validated target | Daily 2 prebuilt EXE is hard-coded to this FriendlyName match |
+| Sony LinkBuds S | 🕘 Historical | Earlier project baseline; requires source retargeting on Daily 2 |
+| Other LE Audio earbuds/headsets | ⚪ Not claimed | Daily 2 prebuilt EXE does not provide general destination selection |
 | Microphone forwarding | ❌ Out of scope | Deliberately not implemented |
 | Full clock synchronization | ❌ Not implemented | Provisional positive-drift guard only |
 | Spatial Sound integration | ⚪ Not claimed | Current validation baseline keeps it off |
+
+---
+
+## Device-selection scope of Daily 2
+
+Daily Test Candidate 2 is **not yet a generic LE Audio endpoint selector**.
+
+The prebuilt binary uses this source default:
+
+```text
+DestinationMatch = "Galaxy Buds3 Pro"
+```
+
+and requires exactly one active render endpoint whose FriendlyName contains that substring.
+
+Therefore:
+
+- successful Galaxy Buds3 Pro behavior is part of the current validation baseline;
+- failure to select another headset is **not evidence of a generic LE Audio routing failure** in Daily 2;
+- advanced users may retarget the source and rebuild;
+- first-run endpoint selection is planned for the next candidate.
 
 ---
 
