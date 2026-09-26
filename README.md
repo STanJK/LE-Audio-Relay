@@ -17,9 +17,9 @@
 > [!NOTE]
 > **Development note — VibeFactory integration**
 >
-> LE Audio Router is being actively developed with an embedded integration to **VibeFactory**, a separate development system/library that is currently **private and not ready for public release**.
+> LE Audio Router is being actively developed with an embedded integration to **VibeFactory**, a separate development system/library that is currently **private** and planned for a separate public release once it reaches that stage.
 >
-> VibeFactory is **not required to build or run LE Audio Router**, and its private implementation details are intentionally not documented here. Public project documentation only acknowledges that the integration exists and has been used in the real development process.
+> VibeFactory is **not required to build or run LE Audio Router**. This README intentionally keeps the mention high-level because VibeFactory has not reached its own public-documentation milestone yet — not because the integration is treated as confidential.
 
 LE Audio Router is a user-mode Windows audio relay built for a specific class of Bluetooth LE Audio stability problems observed during real daily use.
 
