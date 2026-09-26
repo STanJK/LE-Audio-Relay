@@ -101,6 +101,9 @@ internal sealed class RouteSession :
 
             var boundary =
                 new PcmRelayBoundary(
+                    sampleRate:
+                        AudioFormatPolicy.SampleRate,
+
                     capacityFrames:
                         AudioFormatPolicy.SampleRate *
                         RingCapacityMs /

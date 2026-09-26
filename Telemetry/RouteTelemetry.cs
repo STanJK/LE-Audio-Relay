@@ -17,12 +17,18 @@ internal sealed class RouteTelemetry
     private long _renderZeroFillFrames;
     private long _keepAliveFrames;
     private long _startupTrimFrames;
+
+    private long _clockSilentTrimFrames;
+    private long _clockGradualTrimFrames;
+    private long _clockEmergencyTrimFrames;
+
     private long _callbackErrors;
 
     public void RecordCapture(
         int frames,
         bool silent,
         int writtenFrames,
+        int intentionalClockTrimFrames,
         bool runtime)
     {
         Interlocked.Increment(
@@ -47,7 +53,8 @@ internal sealed class RouteTelemetry
 
         int dropped =
             frames -
-            writtenFrames;
+            writtenFrames -
+            intentionalClockTrimFrames;
 
         if (dropped <= 0)
         {
@@ -131,6 +138,36 @@ internal sealed class RouteTelemetry
         }
     }
 
+    public void RecordClockSilentTrim(
+        int frames)
+    {
+        if (frames > 0)
+        {
+            Interlocked.Add(
+                ref _clockSilentTrimFrames,
+                frames);
+        }
+    }
+
+    public void RecordClockRenderTrim(
+        int gradualFrames,
+        int emergencyFrames)
+    {
+        if (gradualFrames > 0)
+        {
+            Interlocked.Add(
+                ref _clockGradualTrimFrames,
+                gradualFrames);
+        }
+
+        if (emergencyFrames > 0)
+        {
+            Interlocked.Add(
+                ref _clockEmergencyTrimFrames,
+                emergencyFrames);
+        }
+    }
+
     public void RecordCallbackError() =>
         Interlocked.Increment(
             ref _callbackErrors);
@@ -189,6 +226,18 @@ internal sealed class RouteTelemetry
                 Interlocked.Read(
                     ref _startupTrimFrames),
 
+            ClockSilentTrimFrames:
+                Interlocked.Read(
+                    ref _clockSilentTrimFrames),
+
+            ClockGradualTrimFrames:
+                Interlocked.Read(
+                    ref _clockGradualTrimFrames),
+
+            ClockEmergencyTrimFrames:
+                Interlocked.Read(
+                    ref _clockEmergencyTrimFrames),
+
             CallbackErrors:
                 Interlocked.Read(
                     ref _callbackErrors));
@@ -208,4 +257,7 @@ internal readonly record struct RouteTelemetrySnapshot(
     long RenderZeroFillFrames,
     long KeepAliveFrames,
     long StartupTrimFrames,
+    long ClockSilentTrimFrames,
+    long ClockGradualTrimFrames,
+    long ClockEmergencyTrimFrames,
     long CallbackErrors);

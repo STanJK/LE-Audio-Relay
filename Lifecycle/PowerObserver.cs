@@ -1,3 +1,5 @@
+using System.Windows.Forms;
+
 namespace LEAudioRouter.Lifecycle;
 
 /// <summary>
@@ -17,6 +19,7 @@ internal sealed class PowerObserver :
 
     private int _suspended;
     private long _revision;
+    private long _suspendCount;
     private int _disposed;
 
     public PowerObserver()
@@ -39,7 +42,11 @@ internal sealed class PowerObserver :
 
             Revision:
                 Interlocked.Read(
-                    ref _revision));
+                    ref _revision),
+
+            SuspendCount:
+                Interlocked.Read(
+                    ref _suspendCount));
 
     public void Dispose()
     {
@@ -70,6 +77,9 @@ internal sealed class PowerObserver :
                             ref _suspended,
                             1) == 0)
                     {
+                        Interlocked.Increment(
+                            ref _suspendCount);
+
                         Changed?.Invoke(
                             this,
                             EventArgs.Empty);
@@ -100,10 +110,9 @@ internal sealed class PowerObserver :
                     return;
 
                 case PbtApmResumeCritical:
-                    bool wasSuspended =
-                        Interlocked.Exchange(
-                            ref _suspended,
-                            0) != 0;
+                    Interlocked.Exchange(
+                        ref _suspended,
+                        0);
 
                     // Critical resume can be delivered when the application did
                     // not receive the matching suspend notification. Either way
@@ -117,9 +126,6 @@ internal sealed class PowerObserver :
 
                     m.Result =
                         new IntPtr(1);
-
-                    _ =
-                        wasSuspended;
 
                     return;
             }

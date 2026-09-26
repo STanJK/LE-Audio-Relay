@@ -295,6 +295,9 @@ internal static class BackendWorker
                 $"cap={snapshot.CapturePackets}; " +
                 $"dropA={snapshot.RuntimeDroppedAudioFrames}; " +
                 $"dropS={snapshot.RuntimeDroppedSilentFrames}; " +
+                $"trimS={snapshot.ClockSilentTrimFrames}; " +
+                $"trimG={snapshot.ClockGradualTrimFrames}; " +
+                $"trimE={snapshot.ClockEmergencyTrimFrames}; " +
                 $"zero={snapshot.RenderZeroFillFrames}";
 
             await SendAsync(

@@ -10,6 +10,8 @@ internal sealed class PcmRelayBoundary
 
     private readonly SpscPcmRing _ring;
     private readonly RouteTelemetry _telemetry;
+    private readonly ProvisionalPositiveDriftGuard _driftGuard;
+
     private readonly int _blockAlign;
     private readonly int _targetCushionFrames;
     private readonly int _startupHoldFrames;
@@ -18,6 +20,7 @@ internal sealed class PcmRelayBoundary
         ModeKeepAlive;
 
     public PcmRelayBoundary(
+        int sampleRate,
         int capacityFrames,
         int blockAlign,
         int targetCushionFrames,
@@ -30,6 +33,13 @@ internal sealed class PcmRelayBoundary
                 blockAlign);
 
         _telemetry = telemetry;
+
+        _driftGuard =
+            new ProvisionalPositiveDriftGuard(
+                sampleRate,
+                capacityFrames,
+                targetCushionFrames);
+
         _blockAlign = blockAlign;
         _targetCushionFrames =
             targetCushionFrames;
@@ -71,24 +81,48 @@ internal sealed class PcmRelayBoundary
         bool runtime =
             RelayActive;
 
+        int intentionalClockTrim =
+            0;
+
+        int framesToWrite =
+            frames;
+
+        if (runtime &&
+            silent)
+        {
+            intentionalClockTrim =
+                _driftGuard.GetSilentFramesToSuppress(
+                    frames,
+                    _ring.FillFrames);
+
+            framesToWrite -=
+                intentionalClockTrim;
+
+            _telemetry.RecordClockSilentTrim(
+                intentionalClockTrim);
+        }
+
         int maxFillFrames =
             runtime
                 ? _ring.CapacityFrames
                 : _startupHoldFrames;
 
         int written =
-            silent
-                ? _ring.WriteSilence(
-                    frames,
-                    maxFillFrames)
-                : _ring.Write(
-                    buffer,
-                    maxFillFrames);
+            framesToWrite <= 0
+                ? 0
+                : silent
+                    ? _ring.WriteSilence(
+                        framesToWrite,
+                        maxFillFrames)
+                    : _ring.Write(
+                        buffer,
+                        maxFillFrames);
 
         _telemetry.RecordCapture(
             frames,
             silent,
             written,
+            intentionalClockTrim,
             runtime);
     }
 
@@ -119,7 +153,8 @@ internal sealed class PcmRelayBoundary
             int observedFill =
                 _ring.FillFrames;
 
-            if (observedFill >= requiredFill)
+            if (observedFill >=
+                requiredFill)
             {
                 if (Interlocked.CompareExchange(
                         ref _mode,
@@ -154,6 +189,14 @@ internal sealed class PcmRelayBoundary
 
             return buffer.Length;
         }
+
+        DriftTrimResult driftTrim =
+            _driftGuard.ApplyBeforeRender(
+                _ring);
+
+        _telemetry.RecordClockRenderTrim(
+            driftTrim.GradualFrames,
+            driftTrim.EmergencyFrames);
 
         int readFrames =
             _ring.Read(
