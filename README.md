@@ -343,6 +343,8 @@ That distinction is important when reporting LE Audio issues publicly.
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common startup and lifecycle problems |
 | [Architecture](docs/ARCHITECTURE.md) | Current internal ownership and process model |
 | [Project history](docs/PROJECT_HISTORY.md) | V0.1 → Round4 → V0.20.x → V0.21 candidate |
+| [Community / Microsoft publishing](docs/COMMUNITY_AND_MICROSOFT.md) | How to turn the evidence into articles and platform reports |
+| [Public release checklist](docs/PUBLIC_RELEASE_CHECKLIST.md) | What remains before formal V0.21 |
 | [Architecture decisions](docs/decisions/) | ADRs for worker isolation, endpoint lifecycle, power, timing |
 
 ---
