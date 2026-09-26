@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace LEAudioRouter.Host;
+namespace LEAudioRelay.Host;
 
 internal static class ConsoleBridge
 {

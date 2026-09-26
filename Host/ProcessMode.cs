@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Host;
+namespace LEAudioRelay.Host;
 
 internal enum ProcessMode
 {

@@ -1,6 +1,6 @@
 using NAudio.CoreAudioApi;
 
-namespace LEAudioRouter.Lifecycle;
+namespace LEAudioRelay.Lifecycle;
 
 /// <summary>
 /// Re-enumeration is the authoritative source of endpoint reality.

@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Lifecycle;
+namespace LEAudioRelay.Lifecycle;
 
 internal enum TargetEndpointAvailability
 {

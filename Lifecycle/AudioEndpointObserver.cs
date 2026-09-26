@@ -1,6 +1,6 @@
 using NAudio.CoreAudioApi;
 
-namespace LEAudioRouter.Lifecycle;
+namespace LEAudioRelay.Lifecycle;
 
 /// <summary>
 /// Converts Windows Core Audio endpoint notifications into one cheap wake-up

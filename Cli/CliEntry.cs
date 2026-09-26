@@ -1,6 +1,6 @@
-using LEAudioRouter.Host;
+using LEAudioRelay.Host;
 
-namespace LEAudioRouter.Cli;
+namespace LEAudioRelay.Cli;
 
 internal static class CliEntry
 {
@@ -30,7 +30,7 @@ internal static class CliEntry
 
     private static void PrintHelp()
     {
-        Console.WriteLine("LE Audio Router - Round4 shell bootstrap");
+        Console.WriteLine("LE Audio Relay - Round4 shell bootstrap");
         Console.WriteLine();
         Console.WriteLine("No arguments     Start the Windows tray shell");
         Console.WriteLine("--status         Print current bootstrap status");

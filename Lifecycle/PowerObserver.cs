@@ -1,6 +1,6 @@
 using System.Windows.Forms;
 
-namespace LEAudioRouter.Lifecycle;
+namespace LEAudioRelay.Lifecycle;
 
 /// <summary>
 /// Thin WM_POWERBROADCAST observer. WndProc only updates an in-memory fact and
@@ -28,7 +28,7 @@ internal sealed class PowerObserver :
             new CreateParams
             {
                 Caption =
-                    "LE Audio Router Power Observer"
+                    "LE Audio Relay Power Observer"
             });
     }
 
