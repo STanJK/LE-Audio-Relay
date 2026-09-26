@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Timing;
+namespace LEAudioRelay.Timing;
 
 /// <summary>
 /// Temporary one-sided guard for positive producer/consumer clock drift.

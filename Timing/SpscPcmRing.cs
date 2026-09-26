@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Timing;
+namespace LEAudioRelay.Timing;
 
 internal sealed class SpscPcmRing
 {
