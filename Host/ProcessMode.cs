@@ -16,14 +16,11 @@ internal static class ProcessModeParser
             return ProcessMode.BackendWorker;
         }
 
-        if (args.Any(x =>
-                x.Equals("--cli", StringComparison.OrdinalIgnoreCase) ||
-                x.Equals("--status", StringComparison.OrdinalIgnoreCase) ||
-                x.Equals("--restart", StringComparison.OrdinalIgnoreCase)))
-        {
-            return ProcessMode.Cli;
-        }
-
-        return ProcessMode.Tray;
+        // No arguments is the product's normal tray entry.
+        // Any explicit argument is treated as CLI intent so an unknown or
+        // help flag can never accidentally leave a background tray process.
+        return args.Length == 0
+            ? ProcessMode.Tray
+            : ProcessMode.Cli;
     }
 }
