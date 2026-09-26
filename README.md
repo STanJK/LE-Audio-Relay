@@ -9,10 +9,21 @@
 
 [Getting started](docs/GETTING_STARTED.md) · [Why this exists](docs/WHY_THIS_EXISTS.md) · [How it works](docs/HOW_IT_WORKS.md) · [Validation](docs/VALIDATION.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Architecture](docs/ARCHITECTURE.md) · [中文](README.zh-CN.md)
 
+## Download
+
+**[Download LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
+
+Windows x64 · self-contained · single-file · ~50 MB · no separate .NET runtime required
+
+[Release notes](https://github.com/STanJK/LE-Audio-Relay/releases/tag/v0.21.0-daily.2)
+
+> [!WARNING]
+> This is a **daily-test prerelease**, not a stable release. Full multi-day validation is still in progress.
+
 > [!IMPORTANT]
-> **Current status: V0.21 Daily Test Candidate 1.**
+> **Current status: V0.21 Daily Test Candidate 2.**
 >
-> The current architecture is usable enough for sustained daily testing, but full multi-day validation is still in progress. It is **not yet a stable release**, and there are currently **no prebuilt binaries or installer**.
+> The current architecture is usable enough for sustained daily testing, but full multi-day validation is still in progress. It is **not yet a stable release**. A self-contained Windows x64 Daily Test binary is now available above.
 
 > [!NOTE]
 > **Development note — VibeFactory integration**
