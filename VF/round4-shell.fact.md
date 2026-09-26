@@ -101,7 +101,7 @@ The current capture/render clocks can accumulate positive ring drift during mult
 
 ### drift-what
 
-ProvisionalPositiveDriftGuard first removes excess source-declared silence above the target cushion. Under uninterrupted audio it uses a slow one-stereo-frame slip every four render callbacks only while fill remains above the high-water band. A near-capacity hard trim exists only as an emergency guardrail. Intentional correction frames have dedicated telemetry and are excluded from real runtime-drop accounting.
+ProvisionalPositiveDriftGuard regulates the **post-render residual** queue around the 10 ms target cushion. Source-declared silence removes already-accumulated excess first. Under uninterrupted audio, gradual correction starts at 12 ms residual and slips one complete stereo frame every eight render callbacks until residual returns to 11 ms. If residual reaches 20 ms, the guard hard-recenters to the 10 ms target. The physical 80 ms ring capacity remains safety headroom rather than a normal latency target. Intentional correction frames have dedicated telemetry and are excluded from real runtime-drop accounting.
 
 ### drift-outcome
 
