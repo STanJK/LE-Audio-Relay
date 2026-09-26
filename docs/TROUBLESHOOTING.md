@@ -8,6 +8,30 @@ Start with the simplest rule:
 
 ---
 
+## Daily 2 only targets Galaxy Buds3 Pro by default
+
+The prebuilt v0.21.0-daily.2 binary currently looks for exactly one active render endpoint whose FriendlyName contains:
+
+```text
+Galaxy Buds3 Pro
+```
+
+If you are testing Sony, Bose, another Samsung model, or any other LE Audio endpoint, `WaitingForEndpoint` may simply mean the Daily 2 target name does not match your device.
+
+Advanced users can change `DestinationMatch` in:
+
+```text
+Settings/RelayConfiguration.cs
+```
+
+and rebuild from source.
+
+The internal worker `--dest` argument is not a standalone public CLI in this release.
+
+A first-run endpoint-selection GUI is planned for the next candidate.
+
+---
+
 ## The Tray says WaitingForEndpoint
 
 Meaning:
@@ -22,7 +46,7 @@ Check:
 2. Does Windows show the expected audio endpoint?
 3. Is LE Audio actually enabled?
 4. Does **Use LE Audio when available** exist and remain enabled?
-5. Can Windows play directly to the device without the router?
+5. Can Windows play directly to the device without LE Audio Relay?
 
 Expected process state while waiting:
 
