@@ -1,4 +1,4 @@
-# LE Audio Router
+# LE Audio Relay
 
 **A Windows tray relay for keeping Bluetooth LE Audio playback alive, recoverable, and observable.**
 
@@ -17,13 +17,13 @@
 > [!NOTE]
 > **Development note — VibeFactory integration**
 >
-> LE Audio Router is being actively developed with an embedded integration to **VibeFactory**, a separate development system/library that is currently **private** and planned for a separate public release once it reaches that stage.
+> LE Audio Relay is being actively developed with an embedded integration to **VibeFactory**, a separate development system/library that is currently **private** and planned for a separate public release once it reaches that stage.
 >
-> VibeFactory is **not required to build or run LE Audio Router**. This README intentionally keeps the mention high-level because VibeFactory has not reached its own public-documentation milestone yet — not because the integration is treated as confidential.
+> VibeFactory is **not required to build or run LE Audio Relay**. This README intentionally keeps the mention high-level because VibeFactory has not reached its own public-documentation milestone yet — not because the integration is treated as confidential.
 
-LE Audio Router is a user-mode Windows audio relay built for a specific class of Bluetooth LE Audio stability problems observed during real daily use.
+LE Audio Relay is a user-mode Windows audio relay built for a specific class of Bluetooth LE Audio stability problems observed during real daily use.
 
-Instead of making the LE Audio earbuds the Windows default output directly, normal applications render to a separate physical output endpoint. LE Audio Router captures that system mix with **Process Loopback**, forwards it to the LE Audio endpoint, and keeps the destination render stream continuously alive — including during silence, when it renders real zero PCM.
+Instead of making the LE Audio earbuds the Windows default output directly, normal applications render to a separate physical output endpoint. LE Audio Relay captures that system mix with **Process Loopback**, forwards it to the LE Audio endpoint, and keeps the destination render stream continuously alive — including during silence, when it renders real zero PCM.
 
 The current validated target is **Samsung Galaxy Buds3 Pro** on Windows 11. Other LE Audio devices may work, but they are not yet claimed as supported.
 
@@ -45,7 +45,7 @@ The first successful workaround was simple:
 
 > **Do not let the final LE Audio render stream go away.**
 
-Keeping one render stream alive and feeding **real zero PCM during silence** prevented the persistent failure from reproducing in our daily path. LE Audio Router turns that workaround into a supervised tray application with reconnect, sleep/resume recovery, logging, and a replaceable audio-route generation.
+Keeping one render stream alive and feeding **real zero PCM during silence** prevented the persistent failure from reproducing in our daily path. LE Audio Relay turns that workaround into a supervised tray application with reconnect, sleep/resume recovery, logging, and a replaceable audio-route generation.
 
 Read the full background: **[Why this exists](docs/WHY_THIS_EXISTS.md)**.
 
@@ -57,7 +57,7 @@ Read the full background: **[Why this exists](docs/WHY_THIS_EXISTS.md)**.
   The final shared-mode render stream stays open continuously and receives zero PCM during silence.
 
 - **Uses Windows Process Loopback**  
-  Captures ordinary Windows render streams while excluding the router worker process tree, so the relay does not recursively capture itself.
+  Captures ordinary Windows render streams while excluding the relay worker process tree, so the relay does not recursively capture itself.
 
 - **Recovers from endpoint disconnect/reconnect**  
   Core Audio notifications wake the supervisor; fresh endpoint enumeration decides what is actually available.
@@ -108,7 +108,7 @@ Applications render to a sacrificial physical endpoint such as an active NVIDIA 
 
 This creates two useful properties:
 
-1. the router can keep the LE Audio endpoint open independently of application silence;
+1. the relay can keep the LE Audio endpoint open independently of application silence;
 2. the router can destroy and recreate the entire destination generation without restarting every application using audio.
 
 More detail: **[How it works](docs/HOW_IT_WORKS.md)**.
@@ -135,8 +135,8 @@ More detail: **[How it works](docs/HOW_IT_WORKS.md)**.
 ### Build
 
 ```powershell
-git clone https://github.com/STanJK/le-audio-windows-relay.git
-cd le-audio-windows-relay
+git clone https://github.com/STanJK/LE-Audio-Relay.git
+cd LE-Audio-Relay
 
 dotnet build .\LEAudioRouter.csproj
 ```
@@ -154,7 +154,7 @@ The application runs from the Windows system tray.
 1. Pair and connect the LE Audio earbuds.
 2. Make sure Windows is actually using the LE Audio endpoint.
 3. Set the Windows default output to a **separate physical sink** such as active HDMI or Realtek.
-4. Start LE Audio Router.
+4. Start LE Audio Relay.
 5. Play audio normally.
 
 The tray should reach:
@@ -306,7 +306,7 @@ The persistent log intentionally does **not** contain heartbeat spam, ring occup
 
 ## What this project is not
 
-LE Audio Router is **not**:
+LE Audio Relay is **not**:
 
 - a Bluetooth driver;
 - a replacement LE Audio host stack;
