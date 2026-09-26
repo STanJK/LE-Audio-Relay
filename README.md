@@ -21,9 +21,9 @@ It establishes:
 - GameEffects as the default;
 - the two-process fault/diagnostic boundary documented by ADR 0001;
 - a current Round4 VF-KB model for the tray/worker architecture;
-- no dependency on NAudio or the Legacy V0.1 implementation yet.
+- no dependency on NAudio or the Legacy V0.1 implementation.
 
-Development after the frozen V0.20 milestone now reconnects real audio routing inside the disposable worker generation. The new Routing/Timing/Telemetry implementation is handwritten and does not import Legacy V0.1.
+Development after the frozen V0.20 milestone reconnects real audio routing inside the disposable worker generation and adds event-driven Windows endpoint lifecycle reconciliation. The new Routing/Timing/Telemetry/Lifecycle implementation is handwritten and does not import Legacy V0.1.
 
 ## Product semantics
 
@@ -31,8 +31,14 @@ Development after the frozen V0.20 milestone now reconnects real audio routing i
 application alive
     = routing intent
 
-worker failure
-    = automatic recovery
+target endpoint absent
+    = wait quietly; do not spawn workers
+
+target endpoint becomes active
+    = start a fresh route generation
+
+worker/route failure while endpoint is active
+    = automatic bounded recovery
 
 user wants routing stopped
     = exit application
@@ -40,7 +46,7 @@ user wants routing stopped
 
 There is intentionally no separate Router Enabled toggle and no configurable Auto reconnect policy.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [ADR 0001](docs/decisions/0001-out-of-process-route-generation.md), the [V0.20 release note](docs/releases/V0.20.md), and the current [Round4 VF-KB](VF/round4-shell.vf.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [ADR 0001](docs/decisions/0001-out-of-process-route-generation.md), [ADR 0002](docs/decisions/0002-event-driven-endpoint-reconciliation.md), the [V0.20 release note](docs/releases/V0.20.md), and the current [Round4 VF-KB](VF/round4-shell.vf.md).
 
 ## Runtime architecture
 
@@ -52,10 +58,15 @@ flowchart TD
 
     Shell --> Config["Router Configuration"]
     Shell --> Supervisor["Backend Supervisor"]
-    Supervisor -->|"spawn / replace"| Worker
+
+    Observer["Lifecycle endpoint observer"] -->|"wake only"| Supervisor
+    Supervisor --> Probe["Authoritative endpoint probe"]
+    Supervisor -->|"spawn / replace only when eligible"| Worker
     Worker -->|"heartbeat / status"| Supervisor
 
-    Worker -. next milestone .-> Route["Audio Route Generation"]
+    Worker --> Route["Audio Route Generation"]
+    Route --> Timing["PCM Relay Boundary"]
+    Route --> Telemetry["Route Telemetry"]
 ```
 
 ### Hard invariants
@@ -63,15 +74,17 @@ flowchart TD
 1. **Application lifetime is owned by the tray/supervisor process.**
 2. **Application alive implies routing intent.**
 3. **Recovery is automatic and not user-configurable.**
-4. **One worker PID represents one disposable Audio Route generation.**
-5. **The process boundary is a user-mode fault/diagnostic boundary, not an audio-domain boundary.**
-6. **Exactly two runtime process roles are allowed unless a later ADR changes this.**
-7. **Legacy V0.1 is evidence, not a library.**
-8. **Clock synchronization remains a future Timing module.**
+4. **Endpoint notifications are wake-up signals; re-enumeration is the source of truth.**
+5. **An absent target endpoint implies zero worker processes and zero reconnect spawn attempts.**
+6. **One worker PID represents one disposable Audio Route generation.**
+7. **The process boundary is a user-mode fault/diagnostic boundary, not an audio-domain boundary.**
+8. **Exactly two runtime process roles are allowed unless a later ADR changes this.**
+9. **Legacy V0.1 is evidence, not a library.**
+10. **Clock synchronization remains a future Timing module.**
 
 ## Version metadata
 
-V0.20 is embedded into the .NET application metadata:
+The frozen V0.20 release embeds:
 
 ```text
 Version              0.20.0
@@ -79,6 +92,8 @@ AssemblyVersion      0.20.0.0
 FileVersion          0.20.0.0
 InformationalVersion V0.20
 ```
+
+The active Round4 development branch identifies itself as `V0.20+round4-dev`.
 
 ## Build
 

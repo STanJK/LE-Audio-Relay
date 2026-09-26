@@ -39,9 +39,54 @@ The worker process is a **user-mode fault and diagnostic boundary**. It is not a
 
 One worker process represents one disposable audio route generation.
 
+## Event-driven endpoint lifecycle
+
+Worker existence is reconciled against observed Windows endpoint reality rather than maintained by a fixed retry loop.
+
+```mermaid
+flowchart LR
+    CoreAudio["Core Audio endpoint notifications"]
+    Observer["Lifecycle observer"]
+    Supervisor["Backend Supervisor"]
+    Probe["Endpoint probe"]
+    Worker["Route worker"]
+
+    CoreAudio --> Observer
+    Observer -->|"nonblocking wake only"| Supervisor
+    Supervisor --> Probe
+    Probe -->|"target absent"| Wait["WaitingForEndpoint"]
+    Probe -->|"target active + topology safe"| Worker
+```
+
+The notification callback is deliberately not authoritative. It only wakes supervision.
+
+The supervisor then re-enumerates current active render endpoints and the current default multimedia render endpoint. Re-enumeration is the source of truth because reconnects may generate multiple notifications and endpoint IDs/states may change during topology reconstruction.
+
+### Endpoint states
+
+```text
+target absent
+    => WaitingForEndpoint
+    => zero worker processes
+    => no route startup retries
+
+target ambiguous or default render unsafe
+    => TopologyBlocked
+    => zero worker processes
+
+target active + default render safe
+    => one worker should exist
+
+worker/route failure while target remains active
+    => RecoveringFault
+    => bounded backoff: 1s, 2s, 5s, 10s, 30s
+```
+
+A 30-second low-frequency topology safety probe exists only as protection against a missed Core Audio notification. It does not create a worker while the endpoint is still absent.
+
 ## Worker-local audio architecture
 
-The first handwritten Round4 audio route now lives entirely inside the worker:
+The handwritten Round4 audio route lives entirely inside the worker:
 
 ```mermaid
 flowchart LR
@@ -126,21 +171,34 @@ Capture, rendering, timing, telemetry, and route-local coordination remain ordin
 
 ```text
 WHILE the application is alive:
-    maintain one healthy route generation
+    observe endpoint topology
+
+    IF target endpoint is absent:
+        ensure no worker exists
+        wait for topology change
+
+    ELSE IF target topology is ambiguous or default render is unsafe:
+        ensure no worker exists
+        expose TopologyBlocked
+        wait for topology change
+
+    ELSE:
+        ensure one healthy route generation exists
 
     IF configuration changes:
         replace the current generation
 
-    IF the user requests Restart audio route:
+    IF user requests Restart audio route:
         replace the current generation
 
-    IF the worker exits, faults, loses route health, or stops heartbeating:
-        replace the current generation automatically
+    IF worker/route fails while topology remains eligible:
+        retry with bounded backoff
 
 ON application exit:
     stop the current generation
+    stop endpoint observation
     terminate supervision
     exit the tray process
 ```
 
-Endpoint absence and Windows suspend/resume will be added as lifecycle observations. Until then, failed route startup is retried with a short recovery delay rather than a tight spawn loop.
+Windows suspend/resume will be added as another Lifecycle observation feeding the same reconciliation model.

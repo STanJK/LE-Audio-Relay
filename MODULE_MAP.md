@@ -9,7 +9,8 @@ This module map follows ownership rather than implementation technology.
 | `Host/` | Select process role and own only process-entry concerns. |
 | `Shell/` | Own Windows tray lifetime and user interaction. |
 | `Settings/` | Own the small frontend-neutral Router configuration and immutable generation snapshots. |
-| `Supervision/` | Own automatic backend lifecycle policy, generation replacement, worker-process monitoring, and the local typed worker protocol. |
+| `Supervision/` | Own route-generation policy: reconcile configuration + observed Windows reality into whether a worker should exist. |
+| `Lifecycle/` | Observe Windows endpoint topology and authoritatively probe current endpoint/default-render reality. It reports facts and wake-ups; it does not start workers. |
 | `Routing/` | Own one worker-local audio route generation: endpoint validation, Process Loopback source, persistent Buds render, and ordered route shutdown. |
 | `Timing/` | Own the current minimal SPSC PCM boundary and startup cushion / real-zero keepalive behavior. Clock synchronization is intentionally not implemented yet. |
 | `Telemetry/` | Own cheap worker-local counters with separate audible/silent drop semantics. |
@@ -21,15 +22,39 @@ This module map follows ownership rather than implementation technology.
 ```text
 application alive
     => routing intent
-    => supervisor maintains one healthy route generation
 
-application exit
-    => stop generation
-    => stop supervisor
-    => exit process
+target endpoint absent
+    => zero workers
+    => wait for topology change
+
+target endpoint active + default route safe
+    => one healthy worker should exist
+
+route failure while topology remains eligible
+    => bounded recovery retry
 ```
 
 There is no independent Enabled state and no configurable reconnect policy.
+
+## Event-driven endpoint reconciliation
+
+`AudioEndpointObserver` subscribes to NAudio/Core Audio endpoint notifications using `useSynchronizationContext: false`.
+
+Its callback contract is intentionally tiny:
+
+```text
+Core Audio notification thread
+    => coalesced Wake()
+    => return immediately
+```
+
+The callback never enumerates endpoints, never disposes audio objects, and never starts/stops a worker.
+
+After wake-up, `AudioEndpointProbe` re-enumerates active render endpoints and the default multimedia render endpoint. That re-enumeration is the source of truth.
+
+A 30-second low-frequency safety probe exists only to recover from a missed notification. It does not create a worker while the target remains absent.
+
+See `docs/decisions/0002-event-driven-endpoint-reconciliation.md`.
 
 ## Process boundary
 
@@ -81,6 +106,7 @@ LEAudioRouter.csproj
     includes Shell/**
     includes Settings/**
     includes Supervision/**
+    includes Lifecycle/**
     includes Routing/**
     includes Timing/**
     includes Telemetry/**
@@ -95,7 +121,7 @@ Archived implementations and generated `bin/` / `obj/` trees must never become a
 
 | Module | Future responsibility |
 |---|---|
-| `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not own recovery policy. |
+| `Lifecycle/` power observer | Windows suspend/resume facts feeding the same supervisor reconciliation model. |
 | `Timing/` control layer | Drift observation, active recentering, and later clock synchronization on top of the existing PCM boundary. |
 | `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
 
@@ -108,8 +134,8 @@ Shell ───────► Settings
 
 Cli ─────────► future shell control boundary
 
+Supervision ─► Lifecycle
 Supervision ─► worker process protocol
-Supervision ─► future Lifecycle observations
 
 worker Host ─► Routing
 Routing ─────► Timing
