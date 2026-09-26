@@ -4,17 +4,18 @@ using System.Drawing;
 
 namespace LEAudioRouter.Shell;
 
-internal sealed class TrayApplicationContext : ApplicationContext
+internal sealed class TrayApplicationContext :
+    ApplicationContext
 {
-    private readonly DesiredRouterState _desired = new();
+    private readonly RouterConfiguration _configuration =
+        new();
+
     private readonly BackendSupervisor _supervisor;
     private readonly Control _uiDispatcher;
     private readonly ContextMenuStrip _menu;
     private readonly NotifyIcon _notifyIcon;
 
     private readonly ToolStripMenuItem _statusItem;
-    private readonly ToolStripMenuItem _enabledItem;
-    private readonly ToolStripMenuItem _autoReconnectItem;
 
     private readonly ToolStripMenuItem _gameEffectsItem;
     private readonly ToolStripMenuItem _gameMediaItem;
@@ -26,41 +27,44 @@ internal sealed class TrayApplicationContext : ApplicationContext
         _uiDispatcher = new Control();
         _uiDispatcher.CreateControl();
 
-        _supervisor = new BackendSupervisor(_desired);
-        _supervisor.StateChanged += OnSupervisorStateChanged;
+        _supervisor =
+            new BackendSupervisor(
+                _configuration);
+
+        _supervisor.StateChanged +=
+            OnSupervisorStateChanged;
 
         _menu = new ContextMenuStrip();
 
-        _statusItem = new ToolStripMenuItem
-        {
-            Enabled = false
-        };
+        _statusItem =
+            new ToolStripMenuItem
+            {
+                Enabled = false
+            };
 
-        _enabledItem = new ToolStripMenuItem("Router enabled")
-        {
-            CheckOnClick = true,
-            Checked = _desired.Enabled
-        };
-        _enabledItem.CheckedChanged += (_, _) =>
-            _supervisor.SetEnabled(_enabledItem.Checked);
+        var modeMenu =
+            new ToolStripMenuItem(
+                "Mode");
 
-        var modeMenu = new ToolStripMenuItem("Mode");
+        _gameEffectsItem =
+            CreateModeItem(
+                "GameEffects",
+                RouterMode.GameEffects);
 
-        _gameEffectsItem = CreateModeItem(
-            "GameEffects",
-            RouterMode.GameEffects);
+        _gameMediaItem =
+            CreateModeItem(
+                "GameMedia",
+                RouterMode.GameMedia);
 
-        _gameMediaItem = CreateModeItem(
-            "GameMedia",
-            RouterMode.GameMedia);
+        _mediaItem =
+            CreateModeItem(
+                "Media",
+                RouterMode.Media);
 
-        _mediaItem = CreateModeItem(
-            "Media",
-            RouterMode.Media);
-
-        _defaultItem = CreateModeItem(
-            "Default / unset",
-            RouterMode.Default);
+        _defaultItem =
+            CreateModeItem(
+                "Default / unset",
+                RouterMode.Default);
 
         modeMenu.DropDownItems.AddRange(
             [
@@ -70,39 +74,52 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 _defaultItem
             ]);
 
-        _autoReconnectItem = new ToolStripMenuItem("Auto reconnect")
-        {
-            CheckOnClick = true,
-            Checked = _desired.AutoReconnect
-        };
-        _autoReconnectItem.CheckedChanged += (_, _) =>
-            _supervisor.SetAutoReconnect(_autoReconnectItem.Checked);
+        var restartItem =
+            new ToolStripMenuItem(
+                "Restart audio route");
 
-        var restartItem = new ToolStripMenuItem("Restart audio route");
-        restartItem.Click += (_, _) => _supervisor.RequestRestart();
+        restartItem.Click +=
+            (_, _) =>
+                _supervisor.RequestRestart();
 
-        var exitItem = new ToolStripMenuItem("Exit");
-        exitItem.Click += (_, _) => ExitApplication();
+        var exitItem =
+            new ToolStripMenuItem(
+                "Exit");
 
-        _menu.Items.Add(_statusItem);
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(_enabledItem);
-        _menu.Items.Add(modeMenu);
-        _menu.Items.Add(_autoReconnectItem);
-        _menu.Items.Add(restartItem);
-        _menu.Items.Add(new ToolStripSeparator());
-        _menu.Items.Add(exitItem);
+        exitItem.Click +=
+            (_, _) =>
+                ExitApplication();
 
-        _notifyIcon = new NotifyIcon
-        {
-            Icon = SystemIcons.Application,
-            Text = "LE Audio Router",
-            ContextMenuStrip = _menu,
-            Visible = true
-        };
+        _menu.Items.Add(
+            _statusItem);
 
-        _notifyIcon.DoubleClick += (_, _) =>
-            _supervisor.RequestRestart();
+        _menu.Items.Add(
+            new ToolStripSeparator());
+
+        _menu.Items.Add(
+            modeMenu);
+
+        _menu.Items.Add(
+            restartItem);
+
+        _menu.Items.Add(
+            new ToolStripSeparator());
+
+        _menu.Items.Add(
+            exitItem);
+
+        _notifyIcon =
+            new NotifyIcon
+            {
+                Icon = SystemIcons.Application,
+                Text = "LE Audio Router",
+                ContextMenuStrip = _menu,
+                Visible = true
+            };
+
+        _notifyIcon.DoubleClick +=
+            (_, _) =>
+                _supervisor.RequestRestart();
 
         UpdateModeChecks();
         UpdateStatus();
@@ -114,16 +131,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         string text,
         RouterMode mode)
     {
-        var item = new ToolStripMenuItem(text)
-        {
-            CheckOnClick = false
-        };
+        var item =
+            new ToolStripMenuItem(text)
+            {
+                CheckOnClick = false
+            };
 
-        item.Click += (_, _) =>
-        {
-            _supervisor.SetMode(mode);
-            UpdateModeChecks();
-        };
+        item.Click +=
+            (_, _) =>
+            {
+                _supervisor.SetMode(mode);
+                UpdateModeChecks();
+            };
 
         return item;
     }
@@ -131,16 +150,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void UpdateModeChecks()
     {
         _gameEffectsItem.Checked =
-            _desired.Mode == RouterMode.GameEffects;
+            _configuration.Mode ==
+            RouterMode.GameEffects;
 
         _gameMediaItem.Checked =
-            _desired.Mode == RouterMode.GameMedia;
+            _configuration.Mode ==
+            RouterMode.GameMedia;
 
         _mediaItem.Checked =
-            _desired.Mode == RouterMode.Media;
+            _configuration.Mode ==
+            RouterMode.Media;
 
         _defaultItem.Checked =
-            _desired.Mode == RouterMode.Default;
+            _configuration.Mode ==
+            RouterMode.Default;
     }
 
     private void OnSupervisorStateChanged(
@@ -154,7 +177,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         if (_uiDispatcher.InvokeRequired)
         {
-            _uiDispatcher.BeginInvoke(UpdateStatus);
+            _uiDispatcher.BeginInvoke(
+                UpdateStatus);
+
             return;
         }
 
@@ -164,14 +189,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void UpdateStatus()
     {
         string backend =
-            _supervisor.ActiveBackendGeneration is long generation
+            _supervisor.ActiveBackendGeneration
+                is long generation
                 ? $"Backend gen: {generation}"
                 : "Backend gen: none";
 
         _statusItem.Text =
             $"State: {_supervisor.State} | " +
             $"{backend} | " +
-            $"Mode: {_desired.Mode}";
+            $"Mode: {_configuration.Mode}";
 
         _notifyIcon.Text =
             _supervisor.State switch
@@ -179,24 +205,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 SupervisorState.Running =>
                     "LE Audio Router - Running",
 
-                SupervisorState.RestartRequested =>
-                    "LE Audio Router - Restart requested",
-
                 SupervisorState.Starting =>
                     "LE Audio Router - Starting backend",
 
-                SupervisorState.Restarting or
-                SupervisorState.RestartRequested =>
+                SupervisorState.RestartRequested or
+                SupervisorState.Restarting =>
                     "LE Audio Router - Restarting backend",
 
                 SupervisorState.Faulted =>
-                    "LE Audio Router - Backend fault",
+                    "LE Audio Router - Recovering backend",
 
                 SupervisorState.Stopped =>
                     "LE Audio Router - Stopped",
 
                 _ =>
-                    "LE Audio Router - Shell active"
+                    "LE Audio Router"
             };
     }
 
@@ -206,11 +229,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ExitThread();
     }
 
-    protected override void Dispose(bool disposing)
+    protected override void Dispose(
+        bool disposing)
     {
         if (disposing)
         {
-            _supervisor.StateChanged -= OnSupervisorStateChanged;
+            _supervisor.StateChanged -=
+                OnSupervisorStateChanged;
+
             _supervisor.Dispose();
 
             _notifyIcon.Visible = false;

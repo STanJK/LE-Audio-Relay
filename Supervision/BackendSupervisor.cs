@@ -19,20 +19,23 @@ internal sealed class BackendSupervisor : IDisposable
         TimeSpan.FromSeconds(2);
 
     private readonly object _gate = new();
-    private readonly DesiredRouterState _desiredState;
+    private readonly RouterConfiguration _configuration;
     private readonly CancellationTokenSource _lifetimeCts = new();
 
-    private SupervisorState _state = SupervisorState.Idle;
+    private SupervisorState _state =
+        SupervisorState.Idle;
+
     private Task? _loopTask;
 
-    private long _restartGeneration;
+    private long _restartRevision;
     private long _nextBackendGeneration;
     private long? _activeBackendGeneration;
     private string? _lastError;
 
-    public BackendSupervisor(DesiredRouterState desiredState)
+    public BackendSupervisor(
+        RouterConfiguration configuration)
     {
-        _desiredState = desiredState;
+        _configuration = configuration;
     }
 
     public event EventHandler? StateChanged;
@@ -44,17 +47,6 @@ internal sealed class BackendSupervisor : IDisposable
             lock (_gate)
             {
                 return _state;
-            }
-        }
-    }
-
-    public long RestartGeneration
-    {
-        get
-        {
-            lock (_gate)
-            {
-                return _restartGeneration;
             }
         }
     }
@@ -95,52 +87,35 @@ internal sealed class BackendSupervisor : IDisposable
                     _lifetimeCts.Token));
         }
 
-        PublishState(SupervisorState.Starting);
+        PublishState(
+            SupervisorState.Starting);
     }
 
     public void RequestRestart()
     {
         lock (_gate)
         {
-            _restartGeneration++;
-        }
-
-        PublishState(SupervisorState.RestartRequested);
-    }
-
-    public void SetEnabled(bool enabled)
-    {
-        lock (_gate)
-        {
-            if (enabled && !_desiredState.Enabled)
-            {
-                // Re-enabling is an explicit human request for a fresh
-                // generation even if a prior no-auto-reconnect fault latched.
-                _restartGeneration++;
-            }
-
-            _desiredState.Enabled = enabled;
+            _restartRevision++;
         }
 
         PublishState(
-            enabled
-                ? SupervisorState.Starting
-                : SupervisorState.Stopped);
+            SupervisorState.RestartRequested);
     }
 
-    public void SetMode(RouterMode mode)
+    public void SetMode(
+        RouterMode mode)
     {
         bool changed;
 
         lock (_gate)
         {
             changed =
-                _desiredState.Mode != mode;
+                _configuration.Mode != mode;
 
             if (changed)
             {
-                _desiredState.Mode = mode;
-                _restartGeneration++;
+                _configuration.Mode = mode;
+                _restartRevision++;
             }
         }
 
@@ -149,16 +124,6 @@ internal sealed class BackendSupervisor : IDisposable
             PublishState(
                 SupervisorState.RestartRequested);
         }
-    }
-
-    public void SetAutoReconnect(bool enabled)
-    {
-        lock (_gate)
-        {
-            _desiredState.AutoReconnect = enabled;
-        }
-
-        RaiseStateChanged();
     }
 
     public void Dispose()
@@ -194,33 +159,13 @@ internal sealed class BackendSupervisor : IDisposable
         CancellationToken cancellationToken)
     {
         WorkerGeneration? active = null;
-        long? blockedRestartGeneration = null;
 
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
-                DesiredSnapshot desired =
-                    SnapshotDesired();
-
-                if (!desired.Enabled)
-                {
-                    if (active is not null)
-                    {
-                        await StopGenerationAsync(
-                            active,
-                            cancellationToken);
-
-                        active = null;
-                        SetActiveGeneration(null);
-                    }
-
-                    PublishState(
-                        SupervisorState.Stopped);
-
-                    await DelayAsync(cancellationToken);
-                    continue;
-                }
+                ConfigurationSnapshot desired =
+                    SnapshotConfiguration();
 
                 if (active is not null &&
                     active.Completion.IsCompleted)
@@ -237,25 +182,20 @@ internal sealed class BackendSupervisor : IDisposable
                     if (failure is not null)
                     {
                         SetLastError(failure);
-                    }
-
-                    if (!desired.AutoReconnect)
-                    {
-                        blockedRestartGeneration =
-                            desired.RestartGeneration;
-
                         PublishState(
                             SupervisorState.Faulted);
-
-                        await DelayAsync(cancellationToken);
-                        continue;
                     }
+
+                    await DelayAsync(
+                        cancellationToken);
+
+                    continue;
                 }
 
                 bool generationIsStale =
                     active is not null &&
-                    (active.RestartGeneration !=
-                        desired.RestartGeneration ||
+                    (active.RestartRevision !=
+                        desired.RestartRevision ||
                      active.Configuration !=
                         desired.Configuration);
 
@@ -274,22 +214,6 @@ internal sealed class BackendSupervisor : IDisposable
 
                 if (active is null)
                 {
-                    bool restartIsBlocked =
-                        !desired.AutoReconnect &&
-                        blockedRestartGeneration ==
-                            desired.RestartGeneration;
-
-                    if (restartIsBlocked)
-                    {
-                        PublishState(
-                            SupervisorState.Faulted);
-
-                        await DelayAsync(
-                            cancellationToken);
-
-                        continue;
-                    }
-
                     PublishState(
                         SupervisorState.Starting);
 
@@ -303,7 +227,6 @@ internal sealed class BackendSupervisor : IDisposable
                         SetActiveGeneration(
                             active.Generation);
 
-                        blockedRestartGeneration = null;
                         SetLastError(null);
 
                         PublishState(
@@ -317,23 +240,19 @@ internal sealed class BackendSupervisor : IDisposable
                     catch (Exception ex)
                     {
                         SetLastError(ex.Message);
+
                         PublishState(
                             SupervisorState.Faulted);
 
-                        if (!desired.AutoReconnect)
-                        {
-                            blockedRestartGeneration =
-                                desired.RestartGeneration;
+                        await DelayAsync(
+                            cancellationToken);
 
-                            await DelayAsync(
-                                cancellationToken);
-
-                            continue;
-                        }
+                        continue;
                     }
                 }
 
-                await DelayAsync(cancellationToken);
+                await DelayAsync(
+                    cancellationToken);
             }
         }
         finally
@@ -356,7 +275,7 @@ internal sealed class BackendSupervisor : IDisposable
     }
 
     private async Task<WorkerGeneration> StartGenerationAsync(
-        DesiredSnapshot desired,
+        ConfigurationSnapshot desired,
         CancellationToken cancellationToken)
     {
         long generation =
@@ -428,7 +347,7 @@ internal sealed class BackendSupervisor : IDisposable
 
             return new WorkerGeneration(
                 generation,
-                desired.RestartGeneration,
+                desired.RestartRevision,
                 desired.Configuration,
                 process,
                 pipe,
@@ -452,7 +371,7 @@ internal sealed class BackendSupervisor : IDisposable
     private static Process StartWorkerProcess(
         string pipeName,
         long generation,
-        RouterLaunchConfiguration configuration)
+        RouteGenerationConfiguration configuration)
     {
         string? processPath =
             Environment.ProcessPath;
@@ -686,17 +605,13 @@ internal sealed class BackendSupervisor : IDisposable
         }
     }
 
-    private DesiredSnapshot SnapshotDesired()
+    private ConfigurationSnapshot SnapshotConfiguration()
     {
         lock (_gate)
         {
-            return new DesiredSnapshot(
-                _desiredState.Enabled,
-                _desiredState.AutoReconnect,
-                new RouterLaunchConfiguration(
-                    _desiredState.Mode,
-                    _desiredState.DestinationMatch),
-                _restartGeneration);
+            return new ConfigurationSnapshot(
+                _configuration.Snapshot(),
+                _restartRevision);
         }
     }
 
@@ -761,19 +676,17 @@ internal sealed class BackendSupervisor : IDisposable
         }
     }
 
-    private readonly record struct DesiredSnapshot(
-        bool Enabled,
-        bool AutoReconnect,
-        RouterLaunchConfiguration Configuration,
-        long RestartGeneration);
+    private readonly record struct ConfigurationSnapshot(
+        RouteGenerationConfiguration Configuration,
+        long RestartRevision);
 
     private sealed class WorkerGeneration :
         IAsyncDisposable
     {
         public WorkerGeneration(
             long generation,
-            long restartGeneration,
-            RouterLaunchConfiguration configuration,
+            long restartRevision,
+            RouteGenerationConfiguration configuration,
             Process process,
             NamedPipeServerStream pipe,
             StreamReader reader,
@@ -781,7 +694,7 @@ internal sealed class BackendSupervisor : IDisposable
             Task<string?> completion)
         {
             Generation = generation;
-            RestartGeneration = restartGeneration;
+            RestartRevision = restartRevision;
             Configuration = configuration;
             Process = process;
             Pipe = pipe;
@@ -792,9 +705,9 @@ internal sealed class BackendSupervisor : IDisposable
 
         public long Generation { get; }
 
-        public long RestartGeneration { get; }
+        public long RestartRevision { get; }
 
-        public RouterLaunchConfiguration Configuration { get; }
+        public RouteGenerationConfiguration Configuration { get; }
 
         public Process Process { get; }
 

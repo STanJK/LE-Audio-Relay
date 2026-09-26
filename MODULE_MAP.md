@@ -1,23 +1,49 @@
 # LE Audio Router — Module Map
 
-Status: **Round4 bootstrap**
+Status: **Round4 active**
 
 This module map follows ownership rather than implementation technology.
 
 | Module | Responsibility |
 |---|---|
-| `Host/` | Select process mode and own only process-entry concerns. |
-| `Shell/` | Own the Windows tray lifetime, user interaction, and presentation of desired/observed state. |
-| `Settings/` | Own frontend-neutral desired router configuration. |
-| `Supervision/` | Own backend lifecycle policy, generation replacement, worker-process monitoring, and the local typed worker protocol. |
+| `Host/` | Select process role and own only process-entry concerns. |
+| `Shell/` | Own Windows tray lifetime and user interaction. |
+| `Settings/` | Own the small frontend-neutral Router configuration and immutable generation snapshots. |
+| `Supervision/` | Own automatic backend lifecycle policy, generation replacement, worker-process monitoring, and the local typed worker protocol. |
 | `Cli/` | Thin command-line adapter. It must not own router policy or audio behavior. |
 | `Legacy/V0.1/` | Frozen historical implementation and VF-KB evidence. Never a production dependency. |
 
+## Product-level lifecycle rule
+
+```text
+application alive
+    => routing intent
+    => supervisor maintains one healthy route generation
+
+application exit
+    => stop generation
+    => stop supervisor
+    => exit process
+```
+
+There is no independent Enabled state and no configurable reconnect policy.
+
+## Process boundary
+
+Exactly two runtime process roles are permitted:
+
+```text
+Tray / Supervisor process
+Audio Route Worker process
+```
+
+The worker is one disposable route-generation fault/diagnostic boundary. Capture, render, timing, telemetry, and route-local coordination stay inside that worker as normal modules/threads.
+
+See `docs/decisions/0001-out-of-process-route-generation.md`.
+
 ## Build boundary
 
-The root project disables the SDK's recursive default C# item discovery and explicitly compiles only the Round4 production modules.
-
-Therefore:
+The root project disables the SDK's recursive default C# item discovery and explicitly compiles only Round4 production modules.
 
 ```text
 LEAudioRouter.csproj
@@ -31,18 +57,16 @@ LEAudioRouter.csproj
     DOES NOT include Legacy/**
 ```
 
-This is an architectural invariant, not only a build workaround: archived implementations and their generated `bin/` / `obj/` trees must never become accidental dependencies of the canonical application.
+Archived implementations and generated `bin/` / `obj/` trees must never become accidental dependencies of the canonical application.
 
 ## Reserved next modules
 
-These are architectural slots, not implemented code yet.
-
 | Module | Future responsibility |
 |---|---|
-| `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not perform recovery. |
-| `Routing/` | One replaceable audio route generation and its ordered startup/shutdown. |
+| `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not own recovery policy. |
+| `Routing/` | One worker-local audio route generation and its ordered startup/shutdown. |
 | `Timing/` | SPSC boundary, occupancy observation, and later clock synchronization/control. |
-| `Telemetry/` | Cheap always-on structured runtime observations and worker status. |
+| `Telemetry/` | Cheap always-on route observations and worker status. |
 | `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
 
 ## Dependency direction
@@ -52,13 +76,13 @@ Shell ───────► Settings
   │
   └──────────► Supervision
 
-Cli ─────────► future control boundary
+Cli ─────────► future shell control boundary
 
+Supervision ─► worker process protocol
 Supervision ─► future Lifecycle observations
-Supervision ─► future backend worker protocol
 
-future Routing ─► future Timing
-future Routing ─► future Telemetry
+worker Routing ─► future Timing
+worker Routing ─► future Telemetry
 ```
 
-The Shell must never directly own WASAPI clients, ring pointers, capture callbacks, or backend recovery internals.
+The Shell must never directly own WASAPI clients, ring pointers, capture callbacks, or route-local recovery internals.
