@@ -398,6 +398,6 @@ internal static class BackendWorker
                 out RelayMode mode)
             ? mode
             : throw new ArgumentException(
-                $"Invalid worker router mode: {raw}.");
+                $"Invalid worker relay mode: {raw}.");
     }
 }
