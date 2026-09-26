@@ -2,6 +2,7 @@ using System.IO.Pipes;
 using LEAudioRouter.Routing;
 using LEAudioRouter.Settings;
 using LEAudioRouter.Supervision;
+using LEAudioRouter.Telemetry;
 
 namespace LEAudioRouter.Host;
 

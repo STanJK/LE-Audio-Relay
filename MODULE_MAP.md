@@ -11,8 +11,8 @@ This module map follows ownership rather than implementation technology.
 | `Settings/` | Own the small frontend-neutral Router configuration and immutable generation snapshots. |
 | `Supervision/` | Own automatic backend lifecycle policy, generation replacement, worker-process monitoring, and the local typed worker protocol. |
 | `Routing/` | Own one worker-local audio route generation: endpoint validation, Process Loopback source, persistent Buds render, and ordered route shutdown. |
-| `Timing/` | Own the current minimal SPSC PCM boundary and startup cushion/real-zero keepalive behavior. Clock synchronization is intentionally not implemented yet. |
-| `Telemetry/` | Own cheap worker-local counters with separate audible/silent drop semantics.
+| `Timing/` | Own the current minimal SPSC PCM boundary and startup cushion / real-zero keepalive behavior. Clock synchronization is intentionally not implemented yet. |
+| `Telemetry/` | Own cheap worker-local counters with separate audible/silent drop semantics. |
 | `Cli/` | Thin command-line adapter. It must not own router policy or audio behavior. |
 | `Legacy/V0.1/` | Frozen historical implementation and VF-KB evidence. Never a production dependency. |
 
@@ -40,9 +40,35 @@ Tray / Supervisor process
 Audio Route Worker process
 ```
 
-The worker is one disposable route-generation fault/diagnostic boundary. Capture, render, timing, telemetry, and route-local coordination stay inside that worker as normal modules/threads.
+The worker is one disposable route-generation fault/diagnostic boundary.
+
+Inside the worker, `Routing/`, `Timing/`, and `Telemetry/` are ordinary in-process modules. They are not separate process roles.
 
 See `docs/decisions/0001-out-of-process-route-generation.md`.
+
+## Current audio path
+
+```text
+Windows applications
+    ↓
+sacrificial physical default render sink
+    ↓
+Process Loopback source
+    ↓
+Timing/PcmRelayBoundary
+    ↓
+persistent Buds render sink
+```
+
+The current Timing boundary preserves the validated V0.1 startup semantics:
+
+- one SPSC ring;
+- bounded startup accumulation;
+- request + target-cushion activation;
+- real-zero keepalive before relay activation;
+- real-zero fill when runtime data is missing.
+
+It does **not** yet perform drift estimation, recentering, sample slip, PLL, or ASRC.
 
 ## Build boundary
 
@@ -55,6 +81,9 @@ LEAudioRouter.csproj
     includes Shell/**
     includes Settings/**
     includes Supervision/**
+    includes Routing/**
+    includes Timing/**
+    includes Telemetry/**
     includes Cli/**
 
     DOES NOT include Legacy/**
@@ -67,9 +96,7 @@ Archived implementations and generated `bin/` / `obj/` trees must never become a
 | Module | Future responsibility |
 |---|---|
 | `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not own recovery policy. |
-| `Lifecycle/` | Windows power and endpoint observations. Observers report facts; they do not own recovery policy. |
-| `Timing/` future control | Drift observation, recentering, and clock synchronization on top of the existing PCM boundary. |
-| `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
+| `Timing/` control layer | Drift observation, active recentering, and later clock synchronization on top of the existing PCM boundary. |
 | `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
 
 ## Dependency direction
@@ -84,8 +111,10 @@ Cli ─────────► future shell control boundary
 Supervision ─► worker process protocol
 Supervision ─► future Lifecycle observations
 
-worker Routing ─► future Timing
-worker Routing ─► future Telemetry
+worker Host ─► Routing
+Routing ─────► Timing
+Routing ─────► Telemetry
+Timing ──────► Telemetry
 ```
 
 The Shell must never directly own WASAPI clients, ring pointers, capture callbacks, or route-local recovery internals.

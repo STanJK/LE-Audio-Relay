@@ -73,7 +73,7 @@ internal sealed class RouteSession :
                 "Process Loopback requires Windows build 20348 or newer.");
         }
 
-        var resolver =
+        AudioEndpointResolver? resolver =
             new AudioEndpointResolver();
 
         MMDevice? destination = null;
@@ -83,14 +83,14 @@ internal sealed class RouteSession :
         try
         {
             destination =
-                resolver.FindUniqueActiveRender(
+                resolver!.FindUniqueActiveRender(
                     configuration.DestinationMatch);
 
             AudioFormatPolicy.ValidateDestination(
                 destination);
 
             ValidateDefaultRouting(
-                resolver,
+                resolver!,
                 configuration.DestinationMatch);
 
             WaveFormat format =
@@ -140,13 +140,15 @@ internal sealed class RouteSession :
 
             var session =
                 new RouteSession(
-                    resolver,
+                    resolver!,
                     destination,
                     boundary,
                     telemetry,
                     render,
                     capture);
 
+            // Ownership transfers completely to RouteSession at this point.
+            resolver = null;
             render = null;
             capture = null;
             destination = null;
@@ -176,7 +178,7 @@ internal sealed class RouteSession :
             capture?.Dispose();
             render?.Dispose();
             destination?.Dispose();
-            resolver.Dispose();
+            resolver?.Dispose();
 
             throw;
         }

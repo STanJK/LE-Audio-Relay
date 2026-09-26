@@ -54,14 +54,36 @@ internal sealed class RouteTelemetry
             return;
         }
 
-        ref long counter =
-            ref SelectDropCounter(
-                silent,
-                runtime);
+        if (runtime)
+        {
+            if (silent)
+            {
+                Interlocked.Add(
+                    ref _runtimeDroppedSilentFrames,
+                    dropped);
+            }
+            else
+            {
+                Interlocked.Add(
+                    ref _runtimeDroppedAudioFrames,
+                    dropped);
+            }
 
-        Interlocked.Add(
-            ref counter,
-            dropped);
+            return;
+        }
+
+        if (silent)
+        {
+            Interlocked.Add(
+                ref _startupDroppedSilentFrames,
+                dropped);
+        }
+        else
+        {
+            Interlocked.Add(
+                ref _startupDroppedAudioFrames,
+                dropped);
+        }
     }
 
     public void RecordRender(
@@ -170,28 +192,6 @@ internal sealed class RouteTelemetry
             CallbackErrors:
                 Interlocked.Read(
                     ref _callbackErrors));
-
-    private ref long SelectDropCounter(
-        bool silent,
-        bool runtime)
-    {
-        if (runtime)
-        {
-            if (silent)
-            {
-                return ref _runtimeDroppedSilentFrames;
-            }
-
-            return ref _runtimeDroppedAudioFrames;
-        }
-
-        if (silent)
-        {
-            return ref _startupDroppedSilentFrames;
-        }
-
-        return ref _startupDroppedAudioFrames;
-    }
 }
 
 internal readonly record struct RouteTelemetrySnapshot(
