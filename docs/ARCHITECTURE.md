@@ -201,4 +201,79 @@ ON application exit:
     exit the tray process
 ```
 
-Windows suspend/resume will be added as another Lifecycle observation feeding the same reconciliation model.
+Windows suspend/resume now feeds the same reconciliation model through a direct WM_POWERBROADCAST observer.
+
+## Suspend / resume lifecycle
+
+The Tray process owns a hidden native window that observes WM_POWERBROADCAST.
+
+The window callback is intentionally tiny:
+
+```text
+PBT_APMSUSPEND
+    => IsSuspended = true
+    => SuspendCount += 1
+    => wake Supervisor
+    => return
+
+PBT_APMRESUMEAUTOMATIC / PBT_APMRESUMESUSPEND / PBT_APMRESUMECRITICAL
+    => IsSuspended = false
+    => PowerRevision += 1
+    => wake Supervisor
+    => return
+```
+
+The callback never enumerates endpoints and never creates/disposes audio objects.
+
+While suspended, supervision creates no new worker. The existing generation is not trusted after resume. Once Awake, the supervisor re-probes endpoint reality; if a worker generation carries an older PowerRevision, that entire generation is replaced before routing continues.
+
+Thus:
+
+```text
+route generation lifetime
+    < one suspend/resume epoch
+```
+
+## Lifecycle journal
+
+A low-volume journal is written to:
+
+```text
+%LOCALAPPDATA%\LEAudioRouter\logs\lifecycle-YYYY-MM-DD.log
+```
+
+Recorded events are restricted to lifecycle transitions such as:
+
+- APP_START / APP_EXIT;
+- POWER_SUSPEND / POWER_RESUME;
+- ENDPOINT_AVAILABLE / ENDPOINT_ABSENT / ENDPOINT_AMBIGUOUS;
+- TOPOLOGY_BLOCKED;
+- WORKER_RUNNING / WORKER_STOP / WORKER_EXIT / WORKER_REPLACE;
+- MODE_CHANGE;
+- MANUAL_RESTART.
+
+The persistent journal does not record heartbeat, ring occupancy warnings, overflow warnings, drift-trim warnings, or per-second telemetry.
+
+## Provisional positive-drift guard
+
+The PCM boundary currently includes a temporary one-sided guard against positive clock drift.
+
+It is not a PLL, ASRC, clock estimator, or final synchronization design.
+
+Normal correction order:
+
+```text
+source-declared silence available
+    => suppress buffered silent frames above target cushion
+
+continuous audio + fill above high-water band
+    => discard 1 stereo frame every 4 render callbacks
+    => stop gradual trim after returning below low-water band
+
+fill approaches ring capacity
+    => emergency hard trim to high-water band
+```
+
+The goal is operational comfort during long daily runs: prevent the ring from remaining pinned at capacity while keeping the later full Timing controller architecturally separate.
+
+Intentional drift-correction frames are tracked separately from actual runtime audio/silent drops.

@@ -10,10 +10,10 @@ This module map follows ownership rather than implementation technology.
 | `Shell/` | Own Windows tray lifetime and user interaction. |
 | `Settings/` | Own the small frontend-neutral Router configuration and immutable generation snapshots. |
 | `Supervision/` | Own route-generation policy: reconcile configuration + observed Windows reality into whether a worker should exist. |
-| `Lifecycle/` | Observe Windows endpoint topology and authoritatively probe current endpoint/default-render reality. It reports facts and wake-ups; it does not start workers. |
+| `Lifecycle/` | Observe Windows endpoint topology and Windows suspend/resume. It reports facts and wake-ups; it does not start workers or own route teardown. |
 | `Routing/` | Own one worker-local audio route generation: endpoint validation, Process Loopback source, persistent Buds render, and ordered route shutdown. |
-| `Timing/` | Own the current minimal SPSC PCM boundary and startup cushion / real-zero keepalive behavior. Clock synchronization is intentionally not implemented yet. |
-| `Telemetry/` | Own cheap worker-local counters with separate audible/silent drop semantics. |
+| `Timing/` | Own the SPSC PCM boundary, startup cushion / real-zero keepalive, and the temporary positive-drift guard. Full clock synchronization is intentionally not implemented yet. |
+| `Telemetry/` | Own worker-local counters plus the low-volume persistent lifecycle journal. Lifecycle logs explicitly exclude heartbeat/ring-warning spam. |
 | `Cli/` | Thin command-line adapter. It must not own router policy or audio behavior. |
 | `Legacy/V0.1/` | Frozen historical implementation and VF-KB evidence. Never a production dependency. |
 
@@ -121,7 +121,6 @@ Archived implementations and generated `bin/` / `obj/` trees must never become a
 
 | Module | Future responsibility |
 |---|---|
-| `Lifecycle/` power observer | Windows suspend/resume facts feeding the same supervisor reconciliation model. |
 | `Timing/` control layer | Drift observation, active recentering, and later clock synchronization on top of the existing PCM boundary. |
 | `Diagnostics/` | Explicit experiments such as latency and future drift probes. |
 
@@ -144,3 +143,38 @@ Timing ──────► Telemetry
 ```
 
 The Shell must never directly own WASAPI clients, ring pointers, capture callbacks, or route-local recovery internals.
+
+
+## Power lifecycle invariant
+
+```text
+PBT_APMSUSPEND
+    => record Suspended fact
+    => wake Supervisor
+    => do NOT touch WASAPI in the callback
+
+PBT_APMRESUME*
+    => Awake
+    => PowerRevision += 1
+    => wake Supervisor
+
+any worker whose PowerRevision != current PowerRevision
+    => stale generation
+    => replace before trusting audio again
+```
+
+A route generation is never trusted across a suspend/resume cycle.
+
+## Temporary positive-drift guard
+
+The current Timing layer contains `ProvisionalPositiveDriftGuard`.
+
+It is explicitly not a clock synchronizer. Its daily-use purpose is only to prevent slow positive producer/consumer drift from leaving the ring permanently full.
+
+It corrects in this order:
+
+1. suppress excess source-declared silent frames above the target cushion;
+2. during uninterrupted audio, discard one stereo frame every four render callbacks only while fill is above the high-water band;
+3. if fill reaches the emergency band near capacity, hard-trim back to the high-water band.
+
+Intentional correction frames have separate telemetry counters and are not counted as runtime drop/overflow.

@@ -23,7 +23,7 @@ It establishes:
 - a current Round4 VF-KB model for the tray/worker architecture;
 - no dependency on NAudio or the Legacy V0.1 implementation.
 
-Development after the frozen V0.20 milestone reconnects real audio routing inside the disposable worker generation and adds event-driven Windows endpoint lifecycle reconciliation. The new Routing/Timing/Telemetry/Lifecycle implementation is handwritten and does not import Legacy V0.1.
+Development after the frozen V0.20 milestone now contains the handwritten real audio route, event-driven endpoint lifecycle reconciliation, WM_POWERBROADCAST suspend/resume invalidation, a low-volume persistent lifecycle journal, and a provisional one-sided positive-drift guard for daily-use testing. None of the new production path imports Legacy V0.1.
 
 ## Product semantics
 
@@ -102,3 +102,16 @@ dotnet build .\LEAudioRouter.csproj
 ```
 
 Running the executable without arguments starts the tray shell.
+
+
+## Active daily-use validation additions
+
+The current development branch extends the V0.20.2 endpoint-lifecycle baseline with:
+
+- direct `WM_POWERBROADCAST` suspend/resume observation;
+- a monotonically increasing PowerRevision;
+- mandatory replacement of any route generation that predates a resume;
+- lifecycle-only persistent logging under `%LOCALAPPDATA%\LEAudioRouter\logs\`;
+- a provisional positive-drift guard that prevents slow ring growth from pinning the SPSC ring at capacity.
+
+The persistent log intentionally excludes heartbeat, ring-fill warnings, overflow warnings, and other high-frequency telemetry.
