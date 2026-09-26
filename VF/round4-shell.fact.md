@@ -115,7 +115,7 @@ Daily dogfooding needs enough persistent evidence to correlate failures with rec
 
 ### journal-what
 
-LifecycleEventLog writes best-effort daily UTF-8 files under LocalApplicationData/LEAudioRouter/logs. Only low-frequency lifecycle transitions are persisted. Heartbeat, ring occupancy, overflow warnings, clock-trim warnings, and per-second telemetry are intentionally excluded.
+LifecycleEventLog writes best-effort daily UTF-8 files under LocalApplicationData/LEAudioRelay/logs. Only low-frequency lifecycle transitions are persisted. Heartbeat, ring occupancy, overflow warnings, clock-trim warnings, and per-second telemetry are intentionally excluded.
 
 ### journal-outcome
 

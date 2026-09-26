@@ -15,7 +15,7 @@ exit "The supervisor either waits with zero workers, blocks on invalid topology,
 
 <!--vf:source
 id "observer"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Lifecycle/AudioEndpointObserver.cs"
 symbol "AudioEndpointObserver"
@@ -23,7 +23,7 @@ symbol "AudioEndpointObserver"
 
 <!--vf:source
 id "probe"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Lifecycle/AudioEndpointProbe.cs"
 symbol "AudioEndpointProbe"
@@ -31,7 +31,7 @@ symbol "AudioEndpointProbe"
 
 <!--vf:source
 id "snapshot"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Lifecycle/AudioEndpointSnapshot.cs"
 symbol "AudioEndpointSnapshot"
@@ -39,7 +39,7 @@ symbol "AudioEndpointSnapshot"
 
 <!--vf:source
 id "supervisor"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
@@ -47,7 +47,7 @@ symbol "BackendSupervisor"
 
 <!--vf:source
 id "adr"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "docs/decisions/0002-event-driven-endpoint-reconciliation.md"
 -->

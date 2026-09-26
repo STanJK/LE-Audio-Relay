@@ -15,7 +15,7 @@ exit "After resume, endpoint reality is re-probed and only a fresh post-resume g
 
 <!--vf:source
 id "observer"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Lifecycle/PowerObserver.cs"
 symbol "PowerObserver"
@@ -23,7 +23,7 @@ symbol "PowerObserver"
 
 <!--vf:source
 id "snapshot"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Lifecycle/PowerSnapshot.cs"
 symbol "PowerSnapshot"
@@ -31,7 +31,7 @@ symbol "PowerSnapshot"
 
 <!--vf:source
 id "supervisor"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
@@ -39,7 +39,7 @@ symbol "BackendSupervisor"
 
 <!--vf:source
 id "adr"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/decisions/0003-power-revision-route-invalidation.md"
 -->

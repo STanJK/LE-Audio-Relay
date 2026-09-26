@@ -15,7 +15,7 @@ exit "Lifecycle history survives process restarts while heartbeat, ring warnings
 
 <!--vf:source
 id "logger"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Telemetry/LifecycleEventLog.cs"
 symbol "LifecycleEventLog"
@@ -23,7 +23,7 @@ symbol "LifecycleEventLog"
 
 <!--vf:source
 id "supervisor"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
@@ -31,7 +31,7 @@ symbol "BackendSupervisor"
 
 <!--vf:source
 id "shell"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Shell/TrayApplicationContext.cs"
 symbol "TrayApplicationContext"
@@ -49,7 +49,7 @@ evidence "shell"
 <!--vf:claim
 id "journal-is-daily-localappdata"
 type "fact"
-text "LifecycleEventLog appends daily UTF-8 files under LocalApplicationData/LEAudioRouter/logs and catches its own I/O failures so logging cannot break routing."
+text "LifecycleEventLog appends daily UTF-8 files under LocalApplicationData/LEAudioRelay/logs and catches its own I/O failures so logging cannot break routing."
 evidence "logger"
 -->
 

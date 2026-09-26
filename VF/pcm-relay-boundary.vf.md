@@ -15,7 +15,7 @@ exit "Every render callback returns a complete buffer while route telemetry sepa
 
 <!--vf:source
 id "boundary"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Timing/PcmRelayBoundary.cs"
 symbol "PcmRelayBoundary"
@@ -23,7 +23,7 @@ symbol "PcmRelayBoundary"
 
 <!--vf:source
 id "ring"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Timing/SpscPcmRing.cs"
 symbol "SpscPcmRing"
@@ -31,7 +31,7 @@ symbol "SpscPcmRing"
 
 <!--vf:source
 id "telemetry"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Telemetry/RouteTelemetry.cs"
 symbol "RouteTelemetry"

@@ -6,7 +6,7 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "Launching LEAudioRouter without explicit CLI arguments starts the Windows tray/supervisor product lifetime."
+entry "Launching LEAudioRelay without explicit CLI arguments starts the Windows tray/supervisor product lifetime."
 problem "The product needs a stable user-facing lifetime that continuously expresses routing intent while endpoint availability and disposable audio-route generations change underneath it."
 behavior "Keep one tray/supervisor process alive, reconcile Windows endpoint reality from event-driven lifecycle observations, expose only route category and manual restart controls, and maintain one disposable worker generation only when topology is eligible."
 exit "The application remains alive in Running, WaitingForEndpoint, TopologyBlocked, or RecoveringFault states until the user exits."
@@ -14,7 +14,7 @@ exit "The application remains alive in Running, WaitingForEndpoint, TopologyBloc
 
 <!--vf:source
 id "program"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Program.cs"
 symbol "Program"
@@ -22,7 +22,7 @@ symbol "Program"
 
 <!--vf:source
 id "shell"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "Shell/TrayApplicationContext.cs"
 symbol "TrayApplicationContext"
@@ -30,21 +30,21 @@ symbol "TrayApplicationContext"
 
 <!--vf:source
 id "architecture"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/ARCHITECTURE.md"
 -->
 
 <!--vf:source
 id "adr-worker-boundary"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
 <!--vf:source
 id "adr-endpoint-reconciliation"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
 path "docs/decisions/0002-event-driven-endpoint-reconciliation.md"
 -->

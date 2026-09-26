@@ -15,7 +15,7 @@ exit "Ring fill is kept away from permanent saturation while intentional correct
 
 <!--vf:source
 id "guard"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "fcaea55d113f49c519ef45917fb6826e3d018db0"
 path "Timing/ProvisionalPositiveDriftGuard.cs"
 symbol "ProvisionalPositiveDriftGuard"
@@ -23,7 +23,7 @@ symbol "ProvisionalPositiveDriftGuard"
 
 <!--vf:source
 id "boundary"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "fcaea55d113f49c519ef45917fb6826e3d018db0"
 path "Timing/PcmRelayBoundary.cs"
 symbol "PcmRelayBoundary"
@@ -31,7 +31,7 @@ symbol "PcmRelayBoundary"
 
 <!--vf:source
 id "telemetry"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "fcaea55d113f49c519ef45917fb6826e3d018db0"
 path "Telemetry/RouteTelemetry.cs"
 symbol "RouteTelemetry"
@@ -39,7 +39,7 @@ symbol "RouteTelemetry"
 
 <!--vf:source
 id "adr"
-repo "STanJK/le-audio-windows-relay"
+repo "STanJK/LE-Audio-Relay"
 rev "fcaea55d113f49c519ef45917fb6826e3d018db0"
 path "docs/decisions/0004-provisional-positive-drift-guard.md"
 -->
