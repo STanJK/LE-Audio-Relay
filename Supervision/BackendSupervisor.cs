@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.IO.Pipes;
 using LEAudioRouter.Lifecycle;
 using LEAudioRouter.Settings;
+using LEAudioRouter.Telemetry;
 
 namespace LEAudioRouter.Supervision;
 
@@ -37,6 +38,7 @@ internal sealed class BackendSupervisor :
         new();
 
     private readonly RouterConfiguration _configuration;
+    private readonly LifecycleEventLog _lifecycleLog;
 
     private readonly CancellationTokenSource _lifetimeCts =
         new();
@@ -45,6 +47,12 @@ internal sealed class BackendSupervisor :
         new(
             initialCount: 0,
             maxCount: 1);
+
+    private PowerSnapshot _powerSnapshot =
+        new(
+            IsSuspended: false,
+            Revision: 0,
+            SuspendCount: 0);
 
     private SupervisorState _state =
         SupervisorState.Idle;
@@ -57,10 +65,14 @@ internal sealed class BackendSupervisor :
     private string? _lastError;
 
     public BackendSupervisor(
-        RouterConfiguration configuration)
+        RouterConfiguration configuration,
+        LifecycleEventLog lifecycleLog)
     {
         _configuration =
             configuration;
+
+        _lifecycleLog =
+            lifecycleLog;
     }
 
     public event EventHandler? StateChanged;
@@ -98,6 +110,18 @@ internal sealed class BackendSupervisor :
         }
     }
 
+    public void UpdatePowerSnapshot(
+        PowerSnapshot snapshot)
+    {
+        lock (_gate)
+        {
+            _powerSnapshot =
+                snapshot;
+        }
+
+        Wake();
+    }
+
     public void Start()
     {
         lock (_gate)
@@ -127,6 +151,9 @@ internal sealed class BackendSupervisor :
             _restartRevision++;
         }
 
+        _lifecycleLog.Write(
+            "MANUAL_RESTART");
+
         PublishState(
             SupervisorState.RestartRequested);
 
@@ -137,11 +164,15 @@ internal sealed class BackendSupervisor :
         RouterMode mode)
     {
         bool changed;
+        RouterMode previous;
 
         lock (_gate)
         {
+            previous =
+                _configuration.Mode;
+
             changed =
-                _configuration.Mode !=
+                previous !=
                 mode;
 
             if (changed)
@@ -155,6 +186,10 @@ internal sealed class BackendSupervisor :
 
         if (changed)
         {
+            _lifecycleLog.Write(
+                "MODE_CHANGE",
+                $"from={previous}; to={mode}");
+
             PublishState(
                 SupervisorState.RestartRequested);
 
@@ -211,10 +246,43 @@ internal sealed class BackendSupervisor :
         int consecutiveFailures =
             0;
 
+        PowerSnapshot? lastObservedPower =
+            null;
+
+        string? lastEndpointLogKey =
+            null;
+
         try
         {
             while (!cancellationToken.IsCancellationRequested)
             {
+                PowerSnapshot power =
+                    SnapshotPower();
+
+                LogPowerTransition(
+                    power,
+                    ref lastObservedPower);
+
+                if (power.IsSuspended)
+                {
+                    pendingWorkerFailure =
+                        null;
+
+                    consecutiveFailures =
+                        0;
+
+                    SetLastError(
+                        null);
+
+                    PublishState(
+                        SupervisorState.Suspended);
+
+                    await WaitForWakeAsync(
+                        cancellationToken);
+
+                    continue;
+                }
+
                 if (observer is null ||
                     probe is null)
                 {
@@ -276,6 +344,10 @@ internal sealed class BackendSupervisor :
                     reality =
                         probe.Probe(
                             desired.Configuration.DestinationMatch);
+
+                    LogEndpointTransition(
+                        reality,
+                        ref lastEndpointLogKey);
                 }
                 catch (Exception ex)
                 {
@@ -335,6 +407,10 @@ internal sealed class BackendSupervisor :
 
                     if (active is not null)
                     {
+                        _lifecycleLog.Write(
+                            "WORKER_STOP",
+                            $"generation={active.Generation}; reason=endpoint_absent");
+
                         await StopGenerationAsync(
                             active,
                             cancellationToken);
@@ -374,6 +450,10 @@ internal sealed class BackendSupervisor :
 
                     if (active is not null)
                     {
+                        _lifecycleLog.Write(
+                            "WORKER_STOP",
+                            $"generation={active.Generation}; reason=topology_blocked");
+
                         await StopGenerationAsync(
                             active,
                             cancellationToken);
@@ -417,18 +497,33 @@ internal sealed class BackendSupervisor :
 
                 bool generationIsStale =
                     active is not null &&
-                    (active.RestartRevision !=
+                    (active.PowerRevision !=
+                        power.Revision ||
+                     active.RestartRevision !=
                         desired.RestartRevision ||
                      active.Configuration !=
                         desired.Configuration);
 
                 if (generationIsStale)
                 {
+                    string replacementReason =
+                        active!.PowerRevision !=
+                            power.Revision
+                            ? "power_resume"
+                            : active.Configuration !=
+                                desired.Configuration
+                                ? "configuration"
+                                : "manual_restart";
+
+                    _lifecycleLog.Write(
+                        "WORKER_REPLACE",
+                        $"generation={active.Generation}; reason={replacementReason}");
+
                     PublishState(
                         SupervisorState.Restarting);
 
                     await StopGenerationAsync(
-                        active!,
+                        active,
                         cancellationToken);
 
                     active = null;
@@ -447,6 +542,7 @@ internal sealed class BackendSupervisor :
                         active =
                             await StartGenerationAsync(
                                 desired,
+                                power.Revision,
                                 cancellationToken);
 
                         consecutiveFailures =
@@ -457,6 +553,12 @@ internal sealed class BackendSupervisor :
 
                         SetLastError(
                             null);
+
+                        _lifecycleLog.Write(
+                            "WORKER_RUNNING",
+                            $"generation={active.Generation}; " +
+                            $"mode={active.Configuration.Mode}; " +
+                            $"powerRevision={active.PowerRevision}");
 
                         PublishState(
                             SupervisorState.Running);
@@ -513,6 +615,10 @@ internal sealed class BackendSupervisor :
             {
                 try
                 {
+                    _lifecycleLog.Write(
+                        "WORKER_STOP",
+                        $"generation={active.Generation}; reason=app_exit");
+
                     await StopGenerationAsync(
                         active,
                         CancellationToken.None);
@@ -550,6 +656,7 @@ internal sealed class BackendSupervisor :
     private async Task<WorkerGeneration>
         StartGenerationAsync(
             ConfigurationSnapshot desired,
+            long powerRevision,
             CancellationToken cancellationToken)
     {
         long generation =
@@ -632,6 +739,7 @@ internal sealed class BackendSupervisor :
             return new WorkerGeneration(
                 generation,
                 desired.RestartRevision,
+                powerRevision,
                 desired.Configuration,
                 process,
                 pipe,
@@ -918,7 +1026,7 @@ internal sealed class BackendSupervisor :
         await generation.DisposeAsync();
     }
 
-    private static async Task<string>
+    private async Task<string>
         CollectWorkerCompletionAsync(
             WorkerGeneration generation)
     {
@@ -926,8 +1034,15 @@ internal sealed class BackendSupervisor :
             await ReadCompletionFailureAsync(
                 generation.Completion);
 
-        return failure ??
-               $"Backend generation {generation.Generation} stopped unexpectedly.";
+        string result =
+            failure ??
+            $"Backend generation {generation.Generation} stopped unexpectedly.";
+
+        _lifecycleLog.Write(
+            "WORKER_EXIT",
+            $"generation={generation.Generation}; reason={result}");
+
+        return result;
     }
 
     private static async Task<string?>
@@ -1070,6 +1185,14 @@ internal sealed class BackendSupervisor :
         return RecoveryBackoff[index];
     }
 
+    private PowerSnapshot SnapshotPower()
+    {
+        lock (_gate)
+        {
+            return _powerSnapshot;
+        }
+    }
+
     private ConfigurationSnapshot SnapshotConfiguration()
     {
         lock (_gate)
@@ -1093,6 +1216,100 @@ internal sealed class BackendSupervisor :
         catch (ObjectDisposedException)
         {
         }
+    }
+
+    private async Task WaitForWakeAsync(
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _wakeSignal.WaitAsync(
+                cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void LogPowerTransition(
+        PowerSnapshot current,
+        ref PowerSnapshot? previous)
+    {
+        if (previous is not
+            PowerSnapshot old)
+        {
+            previous =
+                current;
+
+            return;
+        }
+
+        if (current.SuspendCount !=
+            old.SuspendCount &&
+            current.IsSuspended)
+        {
+            _lifecycleLog.Write(
+                "POWER_SUSPEND",
+                $"suspendCount={current.SuspendCount}; " +
+                $"revision={current.Revision}");
+        }
+
+        if (current.Revision !=
+            old.Revision)
+        {
+            _lifecycleLog.Write(
+                "POWER_RESUME",
+                $"suspendCount={current.SuspendCount}; " +
+                $"revision={current.Revision}");
+        }
+
+        previous =
+            current;
+    }
+
+    private void LogEndpointTransition(
+        AudioEndpointSnapshot reality,
+        ref string? previousKey)
+    {
+        string key =
+            $"{reality.TargetAvailability}|" +
+            $"{reality.TargetDeviceId}|" +
+            $"{reality.DefaultRenderSafe}|" +
+            $"{reality.DefaultRenderName}|" +
+            $"{reality.BlockingReason}";
+
+        if (string.Equals(
+                previousKey,
+                key,
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        previousKey =
+            key;
+
+        string eventName =
+            reality.TargetAvailability switch
+            {
+                TargetEndpointAvailability.Absent =>
+                    "ENDPOINT_ABSENT",
+
+                TargetEndpointAvailability.Ambiguous =>
+                    "ENDPOINT_AMBIGUOUS",
+
+                _ when !reality.DefaultRenderSafe =>
+                    "TOPOLOGY_BLOCKED",
+
+                _ =>
+                    "ENDPOINT_AVAILABLE"
+            };
+
+        _lifecycleLog.Write(
+            eventName,
+            $"target={reality.TargetFriendlyName ?? "<none>"}; " +
+            $"default={reality.DefaultRenderName ?? "<none>"}; " +
+            $"safeDefault={reality.DefaultRenderSafe}");
     }
 
     private void SetActiveGeneration(
@@ -1174,6 +1391,7 @@ internal sealed class BackendSupervisor :
         public WorkerGeneration(
             long generation,
             long restartRevision,
+            long powerRevision,
             RouteGenerationConfiguration configuration,
             Process process,
             NamedPipeServerStream pipe,
@@ -1186,6 +1404,9 @@ internal sealed class BackendSupervisor :
 
             RestartRevision =
                 restartRevision;
+
+            PowerRevision =
+                powerRevision;
 
             Configuration =
                 configuration;
@@ -1212,6 +1433,11 @@ internal sealed class BackendSupervisor :
         }
 
         public long RestartRevision
+        {
+            get;
+        }
+
+        public long PowerRevision
         {
             get;
         }

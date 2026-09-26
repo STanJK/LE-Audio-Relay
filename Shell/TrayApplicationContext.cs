@@ -1,5 +1,7 @@
+using LEAudioRouter.Lifecycle;
 using LEAudioRouter.Settings;
 using LEAudioRouter.Supervision;
+using LEAudioRouter.Telemetry;
 using System.Drawing;
 
 namespace LEAudioRouter.Shell;
@@ -10,7 +12,10 @@ internal sealed class TrayApplicationContext :
     private readonly RouterConfiguration _configuration =
         new();
 
+    private readonly LifecycleEventLog _lifecycleLog;
+    private readonly PowerObserver _powerObserver;
     private readonly BackendSupervisor _supervisor;
+
     private readonly Control _uiDispatcher;
     private readonly ContextMenuStrip _menu;
     private readonly NotifyIcon _notifyIcon;
@@ -24,17 +29,38 @@ internal sealed class TrayApplicationContext :
 
     public TrayApplicationContext()
     {
-        _uiDispatcher = new Control();
+        _uiDispatcher =
+            new Control();
+
         _uiDispatcher.CreateControl();
+
+        _lifecycleLog =
+            new LifecycleEventLog();
+
+        _powerObserver =
+            new PowerObserver();
 
         _supervisor =
             new BackendSupervisor(
-                _configuration);
+                _configuration,
+                _lifecycleLog);
+
+        _powerObserver.Changed +=
+            OnPowerChanged;
 
         _supervisor.StateChanged +=
             OnSupervisorStateChanged;
 
-        _menu = new ContextMenuStrip();
+        _supervisor.UpdatePowerSnapshot(
+            _powerObserver.Snapshot);
+
+        _lifecycleLog.Write(
+            "APP_START",
+            $"version={LifecycleEventLog.ApplicationVersion}; " +
+            $"pid={Environment.ProcessId}");
+
+        _menu =
+            new ContextMenuStrip();
 
         _statusItem =
             new ToolStripMenuItem
@@ -140,7 +166,9 @@ internal sealed class TrayApplicationContext :
         item.Click +=
             (_, _) =>
             {
-                _supervisor.SetMode(mode);
+                _supervisor.SetMode(
+                    mode);
+
                 UpdateModeChecks();
             };
 
@@ -164,6 +192,14 @@ internal sealed class TrayApplicationContext :
         _defaultItem.Checked =
             _configuration.Mode ==
             RouterMode.Default;
+    }
+
+    private void OnPowerChanged(
+        object? sender,
+        EventArgs e)
+    {
+        _supervisor.UpdatePowerSnapshot(
+            _powerObserver.Snapshot);
     }
 
     private void OnSupervisorStateChanged(
@@ -197,6 +233,9 @@ internal sealed class TrayApplicationContext :
         string stateText =
             _supervisor.State switch
             {
+                SupervisorState.Suspended =>
+                    "Windows suspended",
+
                 SupervisorState.WaitingForEndpoint =>
                     $"Waiting for {_configuration.DestinationMatch}",
 
@@ -224,6 +263,9 @@ internal sealed class TrayApplicationContext :
                 SupervisorState.Running =>
                     "LE Audio Router - Running",
 
+                SupervisorState.Suspended =>
+                    "LE Audio Router - Suspended",
+
                 SupervisorState.WaitingForEndpoint =>
                     "LE Audio Router - Waiting for Buds",
 
@@ -250,7 +292,9 @@ internal sealed class TrayApplicationContext :
 
     private void ExitApplication()
     {
-        _notifyIcon.Visible = false;
+        _notifyIcon.Visible =
+            false;
+
         ExitThread();
     }
 
@@ -259,17 +303,28 @@ internal sealed class TrayApplicationContext :
     {
         if (disposing)
         {
+            _powerObserver.Changed -=
+                OnPowerChanged;
+
             _supervisor.StateChanged -=
                 OnSupervisorStateChanged;
 
             _supervisor.Dispose();
+            _powerObserver.Dispose();
 
-            _notifyIcon.Visible = false;
+            _lifecycleLog.Write(
+                "APP_EXIT",
+                $"pid={Environment.ProcessId}");
+
+            _notifyIcon.Visible =
+                false;
+
             _notifyIcon.Dispose();
             _menu.Dispose();
             _uiDispatcher.Dispose();
         }
 
-        base.Dispose(disposing);
+        base.Dispose(
+            disposing);
     }
 }
