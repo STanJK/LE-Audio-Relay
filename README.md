@@ -19,6 +19,8 @@ Windows x64 · self-contained · single-file · ~50 MB · no separate .NET runti
 
 > [!WARNING]
 > This is a **daily-test prerelease**, not a stable release. Full multi-day validation is still in progress.
+>
+> **Daily Test Candidate 2 is currently hard-coded for Samsung Galaxy Buds3 Pro.** The prebuilt EXE looks for exactly one active render endpoint whose friendly name contains `Galaxy Buds3 Pro`. Other LE Audio devices will not be selected by this binary yet.
 
 > [!IMPORTANT]
 > **Current status: V0.21 Daily Test Candidate 2.**
@@ -36,7 +38,11 @@ LE Audio Relay is a user-mode Windows audio relay built for a specific class of 
 
 Instead of making the LE Audio earbuds the Windows default output directly, normal applications render to a separate physical output endpoint. LE Audio Relay captures that system mix with **Process Loopback**, forwards it to the LE Audio endpoint, and keeps the destination render stream continuously alive — including during silence, when it renders real zero PCM.
 
-The current validated target is **Samsung Galaxy Buds3 Pro** on Windows 11. Other LE Audio devices may work, but they are not yet claimed as supported.
+The current validated target is **Samsung Galaxy Buds3 Pro** on Windows 11. **The Daily 2 prebuilt binary is also hard-coded to that target name.** General endpoint selection is not implemented in this release.
+
+Advanced users can already retarget the source build by changing `DestinationMatch` in `Settings/RelayConfiguration.cs` and rebuilding. The internal worker's `--dest` argument is not a supported standalone user CLI; it depends on the supervisor's private pipe/generation arguments.
+
+A simple first-run endpoint selector is planned for the next candidate.
 
 ---
 
@@ -95,15 +101,15 @@ Read the full background: **[Why this exists](docs/WHY_THIS_EXISTS.md)**.
 ```mermaid
 flowchart LR
     Apps["Windows applications"]
-    Sink["Sacrificial physical default sink"]
-    Capture["Process Loopback capture"]
+    Sink["Windows default / sacrificial render endpoint"]
+    Capture["Process Loopback capture<br/>exclude Relay worker tree"]
     Ring["PCM relay boundary"]
     Buds["Persistent LE Audio render"]
     Supervisor["Tray / Supervisor"]
     Worker["Disposable route worker"]
 
     Apps --> Sink
-    Sink --> Capture
+    Apps -. "render streams also visible to Process Loopback" .-> Capture
     Capture --> Ring
     Ring --> Buds
 
@@ -115,7 +121,7 @@ flowchart LR
 
 The important detail is that the **LE Audio endpoint is not the normal Windows default output**.
 
-Applications render to a sacrificial physical endpoint such as an active NVIDIA HDMI or Realtek output. The worker captures that render mix using Process Loopback in **ExcludeTargetProcessTree** mode, then continuously renders the captured PCM to the LE Audio destination.
+Applications render normally to a separate Windows default endpoint such as active NVIDIA HDMI or Realtek. Separately, Process Loopback captures render streams system-wide while excluding the Relay worker process tree; it is **not bound to the sacrificial endpoint itself**. The worker then continuously renders the captured PCM to the LE Audio destination.
 
 This creates two useful properties:
 
