@@ -1,15 +1,15 @@
-using LEAudioRouter.Lifecycle;
-using LEAudioRouter.Settings;
-using LEAudioRouter.Supervision;
-using LEAudioRouter.Telemetry;
+using LEAudioRelay.Lifecycle;
+using LEAudioRelay.Settings;
+using LEAudioRelay.Supervision;
+using LEAudioRelay.Telemetry;
 using System.Drawing;
 
-namespace LEAudioRouter.Shell;
+namespace LEAudioRelay.Shell;
 
 internal sealed class TrayApplicationContext :
     ApplicationContext
 {
-    private readonly RouterConfiguration _configuration =
+    private readonly RelayConfiguration _configuration =
         new();
 
     private readonly LifecycleEventLog _lifecycleLog;
@@ -75,22 +75,22 @@ internal sealed class TrayApplicationContext :
         _gameEffectsItem =
             CreateModeItem(
                 "GameEffects",
-                RouterMode.GameEffects);
+                RelayMode.GameEffects);
 
         _gameMediaItem =
             CreateModeItem(
                 "GameMedia",
-                RouterMode.GameMedia);
+                RelayMode.GameMedia);
 
         _mediaItem =
             CreateModeItem(
                 "Media",
-                RouterMode.Media);
+                RelayMode.Media);
 
         _defaultItem =
             CreateModeItem(
                 "Default / unset",
-                RouterMode.Default);
+                RelayMode.Default);
 
         modeMenu.DropDownItems.AddRange(
             [
@@ -138,7 +138,7 @@ internal sealed class TrayApplicationContext :
             new NotifyIcon
             {
                 Icon = SystemIcons.Application,
-                Text = "LE Audio Router",
+                Text = "LE Audio Relay",
                 ContextMenuStrip = _menu,
                 Visible = true
             };
@@ -155,7 +155,7 @@ internal sealed class TrayApplicationContext :
 
     private ToolStripMenuItem CreateModeItem(
         string text,
-        RouterMode mode)
+        RelayMode mode)
     {
         var item =
             new ToolStripMenuItem(text)
@@ -179,19 +179,19 @@ internal sealed class TrayApplicationContext :
     {
         _gameEffectsItem.Checked =
             _configuration.Mode ==
-            RouterMode.GameEffects;
+            RelayMode.GameEffects;
 
         _gameMediaItem.Checked =
             _configuration.Mode ==
-            RouterMode.GameMedia;
+            RelayMode.GameMedia;
 
         _mediaItem.Checked =
             _configuration.Mode ==
-            RouterMode.Media;
+            RelayMode.Media;
 
         _defaultItem.Checked =
             _configuration.Mode ==
-            RouterMode.Default;
+            RelayMode.Default;
     }
 
     private void OnPowerChanged(
@@ -261,32 +261,32 @@ internal sealed class TrayApplicationContext :
             _supervisor.State switch
             {
                 SupervisorState.Running =>
-                    "LE Audio Router - Running",
+                    "LE Audio Relay - Running",
 
                 SupervisorState.Suspended =>
-                    "LE Audio Router - Suspended",
+                    "LE Audio Relay - Suspended",
 
                 SupervisorState.WaitingForEndpoint =>
-                    "LE Audio Router - Waiting for Buds",
+                    "LE Audio Relay - Waiting for Buds",
 
                 SupervisorState.TopologyBlocked =>
-                    "LE Audio Router - Audio topology blocked",
+                    "LE Audio Relay - Audio topology blocked",
 
                 SupervisorState.Starting =>
-                    "LE Audio Router - Starting audio route",
+                    "LE Audio Relay - Starting audio route",
 
                 SupervisorState.RestartRequested or
                 SupervisorState.Restarting =>
-                    "LE Audio Router - Restarting audio route",
+                    "LE Audio Relay - Restarting audio route",
 
                 SupervisorState.RecoveringFault =>
-                    "LE Audio Router - Recovering audio route",
+                    "LE Audio Relay - Recovering audio route",
 
                 SupervisorState.Stopped =>
-                    "LE Audio Router - Stopped",
+                    "LE Audio Relay - Stopped",
 
                 _ =>
-                    "LE Audio Router"
+                    "LE Audio Relay"
             };
     }
 

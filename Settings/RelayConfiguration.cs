@@ -1,9 +1,9 @@
-namespace LEAudioRouter.Settings;
+namespace LEAudioRelay.Settings;
 
-internal sealed class RouterConfiguration
+internal sealed class RelayConfiguration
 {
-    public RouterMode Mode { get; set; } =
-        RouterMode.GameEffects;
+    public RelayMode Mode { get; set; } =
+        RelayMode.GameEffects;
 
     public string DestinationMatch { get; set; } =
         "Galaxy Buds3 Pro";

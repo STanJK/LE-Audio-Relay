@@ -1,10 +1,10 @@
 using System.IO.Pipes;
-using LEAudioRouter.Routing;
-using LEAudioRouter.Settings;
-using LEAudioRouter.Supervision;
-using LEAudioRouter.Telemetry;
+using LEAudioRelay.Routing;
+using LEAudioRelay.Settings;
+using LEAudioRelay.Supervision;
+using LEAudioRelay.Telemetry;
 
-namespace LEAudioRouter.Host;
+namespace LEAudioRelay.Host;
 
 internal static class BackendWorker
 {
@@ -36,7 +36,7 @@ internal static class BackendWorker
                 args,
                 "--generation");
 
-        RouterMode mode =
+        RelayMode mode =
             GetRequiredMode(
                 args,
                 "--mode");
@@ -383,7 +383,7 @@ internal static class BackendWorker
                 $"Invalid worker argument {name}: {raw}.");
     }
 
-    private static RouterMode GetRequiredMode(
+    private static RelayMode GetRequiredMode(
         string[] args,
         string name)
     {
@@ -395,7 +395,7 @@ internal static class BackendWorker
         return Enum.TryParse(
                 raw,
                 ignoreCase: true,
-                out RouterMode mode)
+                out RelayMode mode)
             ? mode
             : throw new ArgumentException(
                 $"Invalid worker router mode: {raw}.");

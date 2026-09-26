@@ -1,24 +1,24 @@
-using LEAudioRouter.Settings;
+using LEAudioRelay.Settings;
 using NAudio.CoreAudioApi;
 
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal static class RenderCategoryPolicy
 {
     public static AudioStreamCategory? Resolve(
-        RouterMode mode) =>
+        RelayMode mode) =>
         mode switch
         {
-            RouterMode.GameEffects =>
+            RelayMode.GameEffects =>
                 AudioStreamCategory.GameEffects,
 
-            RouterMode.GameMedia =>
+            RelayMode.GameMedia =>
                 AudioStreamCategory.GameMedia,
 
-            RouterMode.Media =>
+            RelayMode.Media =>
                 AudioStreamCategory.Media,
 
-            RouterMode.Default =>
+            RelayMode.Default =>
                 null,
 
             _ =>

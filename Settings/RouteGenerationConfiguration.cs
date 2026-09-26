@@ -1,5 +1,5 @@
-namespace LEAudioRouter.Settings;
+namespace LEAudioRelay.Settings;
 
 internal readonly record struct RouteGenerationConfiguration(
-    RouterMode Mode,
+    RelayMode Mode,
     string DestinationMatch);

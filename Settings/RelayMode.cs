@@ -1,6 +1,6 @@
-namespace LEAudioRouter.Settings;
+namespace LEAudioRelay.Settings;
 
-internal enum RouterMode
+internal enum RelayMode
 {
     GameEffects,
     GameMedia,

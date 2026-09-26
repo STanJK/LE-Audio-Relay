@@ -1,10 +1,10 @@
 using System.Diagnostics;
 using System.IO.Pipes;
-using LEAudioRouter.Lifecycle;
-using LEAudioRouter.Settings;
-using LEAudioRouter.Telemetry;
+using LEAudioRelay.Lifecycle;
+using LEAudioRelay.Settings;
+using LEAudioRelay.Telemetry;
 
-namespace LEAudioRouter.Supervision;
+namespace LEAudioRelay.Supervision;
 
 internal sealed class BackendSupervisor :
     IDisposable
@@ -37,7 +37,7 @@ internal sealed class BackendSupervisor :
     private readonly object _gate =
         new();
 
-    private readonly RouterConfiguration _configuration;
+    private readonly RelayConfiguration _configuration;
     private readonly LifecycleEventLog _lifecycleLog;
 
     private readonly CancellationTokenSource _lifetimeCts =
@@ -65,7 +65,7 @@ internal sealed class BackendSupervisor :
     private string? _lastError;
 
     public BackendSupervisor(
-        RouterConfiguration configuration,
+        RelayConfiguration configuration,
         LifecycleEventLog lifecycleLog)
     {
         _configuration =
@@ -161,10 +161,10 @@ internal sealed class BackendSupervisor :
     }
 
     public void SetMode(
-        RouterMode mode)
+        RelayMode mode)
     {
         bool changed;
-        RouterMode previous;
+        RelayMode previous;
 
         lock (_gate)
         {
@@ -664,7 +664,7 @@ internal sealed class BackendSupervisor :
                 ref _nextBackendGeneration);
 
         string pipeName =
-            $"LEAudioRouter.Backend." +
+            $"LEAudioRelay.Backend." +
             $"{Environment.ProcessId}." +
             $"{generation}." +
             $"{Guid.NewGuid():N}";
