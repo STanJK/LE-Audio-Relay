@@ -31,9 +31,9 @@ The V0.21 Daily Test Candidate exists specifically so the runtime can be validat
 
 ## Repository
 
-- [ ] Create a **sanitized public repository/history** that excludes private VibeFactory implementation material
-- [ ] Do **not** make the current private development repository public merely by changing repository visibility if private VibeFactory material exists anywhere in its Git history
-- [ ] Verify public docs mention VibeFactory only at the approved high level: private, actively used in development, not required at runtime, implementation details undisclosed
+- [ ] Review VibeFactory-related history/content before changing repository visibility and confirm that anything present is acceptable to expose ahead of VibeFactory's own public release
+- [ ] Keep the README wording accurate: VibeFactory is currently private, actively used in development, planned for separate publication, and not required at runtime
+- [ ] Remove or defer only material that is genuinely premature for VibeFactory's own release; a full Git-history sanitization is not required by default
 - [ ] Choose and add an open-source LICENSE
 - [ ] Add GitHub repository description
 - [ ] Add topics such as `windows`, `bluetooth`, `le-audio`, `wasapi`, `audio`
