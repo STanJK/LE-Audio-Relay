@@ -34,7 +34,7 @@ user wants routing stopped
 
 There is intentionally no separate Router Enabled toggle and no configurable Auto reconnect policy.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [ADR 0001](docs/decisions/0001-out-of-process-route-generation.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [ADR 0001](docs/decisions/0001-out-of-process-route-generation.md), and the current [Round4 VF-KB](VF/round4-shell.vf.md).
 
 ## Runtime architecture
 
