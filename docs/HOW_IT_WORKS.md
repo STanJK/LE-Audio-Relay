@@ -5,16 +5,16 @@ LE Audio Relay is intentionally built as a small set of explicit ownership bound
 At a high level:
 
 ```text
-Windows applications
-    ↓
-sacrificial physical render endpoint
-    ↓
-Process Loopback capture
-    ↓
-PCM relay boundary
-    ↓
-persistent LE Audio render
+Windows applications ───────────────→ Windows default / sacrificial render endpoint
+        │
+        └─→ Process Loopback capture (exclude Relay worker process tree)
+                 ↓
+           PCM relay boundary
+                 ↓
+        persistent LE Audio render
 ```
+
+Process Loopback is process-scoped rather than bound to the sacrificial endpoint. The sacrificial/default endpoint exists so ordinary applications have a Windows render destination that is separate from the LE Audio destination.
 
 The long-lived tray process supervises that route but does not contain the route itself.
 
@@ -106,7 +106,7 @@ Typical default sinks:
 
 This lets ordinary applications create and destroy their own render streams without controlling the lifetime of the final Buds AudioClient.
 
-The physical sink is called "sacrificial" because its audible output is not the product goal. Its job is to remain a stable Windows render target whose mix can be captured.
+The physical sink is called "sacrificial" because its audible output is not the product goal. Its job is to remain a stable Windows render target for ordinary applications. Process Loopback observes render streams separately; it is not capturing "from" this endpoint.
 
 ---
 
@@ -137,6 +137,22 @@ Microsoft references:
 
 - https://learn.microsoft.com/en-us/windows/win32/api/audioclientactivationparams/ne-audioclientactivationparams-process_loopback_mode
 - https://learn.microsoft.com/en-us/samples/microsoft/windows-classic-samples/applicationloopbackaudio-sample/
+
+---
+
+## Destination selection in Daily 2
+
+Daily Test Candidate 2 still uses a temporary name-based target:
+
+```text
+DestinationMatch = "Galaxy Buds3 Pro"
+```
+
+The endpoint resolver enumerates Active render endpoints and requires exactly one FriendlyName containing that string.
+
+Advanced source users can change `Settings/RelayConfiguration.cs` and rebuild for another target. The internal worker `--dest` argument is supervisor plumbing, not a public standalone CLI.
+
+This is intentionally temporary. The next candidate is planned to use a simple first-run endpoint-selection GUI and endpoint IDs rather than a hard-coded product name.
 
 ---
 
