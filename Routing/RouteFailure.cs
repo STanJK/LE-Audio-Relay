@@ -1,4 +1,4 @@
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal readonly record struct RouteFailure(
     string Reason,

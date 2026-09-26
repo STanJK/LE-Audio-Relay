@@ -2,7 +2,7 @@ using System.Runtime.Versioning;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal delegate void RouteCapturePacketHandler(
     ReadOnlySpan<byte> buffer,

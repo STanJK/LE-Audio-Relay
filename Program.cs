@@ -1,8 +1,8 @@
-using LEAudioRouter.Cli;
-using LEAudioRouter.Host;
-using LEAudioRouter.Shell;
+using LEAudioRelay.Cli;
+using LEAudioRelay.Host;
+using LEAudioRelay.Shell;
 
-namespace LEAudioRouter;
+namespace LEAudioRelay;
 
 internal static class Program
 {

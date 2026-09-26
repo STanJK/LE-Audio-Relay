@@ -1,6 +1,6 @@
 using NAudio.CoreAudioApi;
 
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal sealed class AudioEndpointResolver :
     IDisposable

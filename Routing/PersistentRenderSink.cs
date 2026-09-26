@@ -1,8 +1,8 @@
-using LEAudioRouter.Settings;
+using LEAudioRelay.Settings;
 using NAudio.CoreAudioApi;
 using NAudio.Wave;
 
-namespace LEAudioRouter.Routing;
+namespace LEAudioRelay.Routing;
 
 internal sealed class PersistentRenderSink :
     IDisposable
