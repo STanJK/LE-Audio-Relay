@@ -9,10 +9,21 @@
 
 [English](README.md) · [快速开始](docs/GETTING_STARTED.md) · [为什么做这个](docs/WHY_THIS_EXISTS.md) · [工作原理](docs/HOW_IT_WORKS.md) · [验证状态](docs/VALIDATION.md) · [故障排查](docs/TROUBLESHOOTING.md)
 
+## 下载
+
+**[下载 LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
+
+Windows x64 · Self-contained · 单 EXE · 约 50 MB · 无需另外安装 .NET Runtime
+
+[查看 Release 说明](https://github.com/STanJK/LE-Audio-Relay/releases/tag/v0.21.0-daily.2)
+
+> [!WARNING]
+> 这是 **Daily Test 预发布版本**，不是稳定版。完整多日日测仍在进行中。
+
 > [!IMPORTANT]
-> **当前状态：V0.21 Daily Test Candidate 1。**
+> **当前状态：V0.21 Daily Test Candidate 2。**
 >
-> 目前架构已经可以进入长期日用测试，但完整的多日验证仍在进行中。它**还不是稳定正式版**，目前也**没有预编译安装包**。
+> 目前架构已经可以进入长期日用测试，但完整的多日验证仍在进行中。它**还不是稳定正式版**。现在已经提供可直接运行的 Windows x64 self-contained Daily Test 单 EXE。
 
 > [!NOTE]
 > **开发说明 — VibeFactory 集成**
