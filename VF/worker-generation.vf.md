@@ -7,16 +7,16 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "BackendSupervisor starts or reconciles one worker generation using the current immutable route-generation configuration snapshot."
+entry "After endpoint lifecycle reconciliation reports eligible topology, BackendSupervisor starts or reconciles one worker generation using the current immutable route-generation configuration snapshot."
 problem "Route-local audio state must be replaceable as one process-local unit without terminating the tray product lifetime."
-behavior "Spawn one backend-worker process, validate HELLO, require the real audio route to reach RUNNING, monitor heartbeat/status, and replace the generation after restart intent, configuration change, route failure, worker completion, or heartbeat loss."
+behavior "Only on eligible topology, spawn one backend-worker process, validate HELLO, require the real audio route to reach RUNNING, monitor heartbeat/status, and replace stale or failed generations. Physical endpoint absence is handled by the sibling endpoint-lifecycle behavior rather than worker retry."
 exit "A healthy route worker remains current, or the failed/stale generation is disposed and supervision proceeds toward a fresh generation."
 -->
 
 <!--vf:source
 id "supervisor"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
 -->
@@ -24,7 +24,7 @@ symbol "BackendSupervisor"
 <!--vf:source
 id "worker"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Host/BackendWorker.cs"
 symbol "BackendWorker"
 -->
@@ -32,7 +32,7 @@ symbol "BackendWorker"
 <!--vf:source
 id "protocol"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Supervision/WorkerProtocol.cs"
 symbol "WorkerProtocol"
 -->
@@ -40,7 +40,7 @@ symbol "WorkerProtocol"
 <!--vf:source
 id "generation-config"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "Settings/RouteGenerationConfiguration.cs"
 symbol "RouteGenerationConfiguration"
 -->
@@ -48,7 +48,7 @@ symbol "RouteGenerationConfiguration"
 <!--vf:source
 id "adr"
 repo "STanJK/le-audio-windows-relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
@@ -151,8 +151,8 @@ SUPERVISOR LOOP:
     IF current generation completed or failed:
         dispose it
         clear current generation
-        wait a short recovery delay
-        continue toward automatic replacement
+        return failure to endpoint-aware reconciliation
+        retry only if current topology is still eligible
 
     IF current generation uses stale configuration
        OR predates a manual restart request:

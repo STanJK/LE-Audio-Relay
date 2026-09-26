@@ -60,3 +60,20 @@ PcmRelayBoundary owns one SPSC ring and the KEEPALIVE → ARMED → RELAY startu
 ### pcm-outcome
 
 The worker can run the real V0.1-equivalent PCM path with cleaner observability while later Timing work can add active recentering or clock control without changing Routing ownership.
+
+
+## Endpoint lifecycle reconciliation
+
+### lifecycle-why
+
+The first real Round4 route proved that blindly retrying worker creation can recover from disconnects, but it also showed that endpoint absence and route failure are different states. A physically/logically absent Buds endpoint provides no useful reason to create another process or initialize WASAPI again. Treating absence as a fault produced unnecessary PID churn and obscured the actual system state.
+
+### lifecycle-what
+
+AudioEndpointObserver subscribes to NAudio 3.0.1 Core Audio device-added, device-removed, device-state-changed, and default-device-changed events with synchronization-context marshalling disabled. Because those callbacks execute on the Windows audio worker thread, the handler only coalesces a supervisor wake signal and returns. It never enumerates devices or touches route objects.
+
+After waking, AudioEndpointProbe re-enumerates active render endpoints and the default multimedia render endpoint. The enumeration result is authoritative; notification order and endpoint IDs are not used as a state machine. The supervisor then classifies the world as WaitingForEndpoint, TopologyBlocked, or route-eligible.
+
+### lifecycle-outcome
+
+When Buds are absent, there is no worker process and no repeated route-start attempt. When Windows reports a topology change, the supervisor immediately re-probes and starts a fresh generation only after the endpoint becomes active again. A 30-second safety probe protects against missed notifications without creating workers while absence persists. Bounded retry remains available only for genuine worker/route failure while topology still appears eligible.
