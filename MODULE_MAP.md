@@ -1,4 +1,4 @@
-# LE Audio Router — Module Map
+# LE Audio Relay — Module Map
 
 Status: **Round4 active**
 
@@ -100,7 +100,7 @@ It does **not** yet perform drift estimation, recentering, sample slip, PLL, or 
 The root project disables the SDK's recursive default C# item discovery and explicitly compiles only Round4 production modules.
 
 ```text
-LEAudioRouter.csproj
+LEAudioRelay.csproj
     includes Program.cs
     includes Host/**
     includes Shell/**

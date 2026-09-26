@@ -1,6 +1,6 @@
 # Getting started
 
-This guide gets the current LE Audio Router daily-test candidate running from source.
+This guide gets the current LE Audio Relay daily-test candidate running from source.
 
 > [!IMPORTANT]
 > There is currently no signed installer or prebuilt public release. The candidate is source-only while full daily-use validation is in progress.
@@ -47,7 +47,7 @@ dotnet --version
 
 ### A sacrificial physical render endpoint
 
-LE Audio Router intentionally does **not** use the Buds as the normal Windows default output.
+LE Audio Relay intentionally does **not** use the Buds as the normal Windows default output.
 
 You need another active physical render endpoint, for example:
 
@@ -70,15 +70,15 @@ Before testing the router, confirm native LE Audio works at all.
 2. Confirm **Use LE Audio when available** is enabled.
 3. Confirm Windows exposes the expected render endpoint.
 4. Play audio directly to the device at least once.
-5. If Windows cannot use the device natively, fix that before involving LE Audio Router.
+5. If Windows cannot use the device natively, fix that before involving LE Audio Relay.
 
-LE Audio Router is not a Bluetooth driver and cannot create LE Audio support on a PC whose Windows/driver stack does not provide it.
+LE Audio Relay is not a Bluetooth driver and cannot create LE Audio support on a PC whose Windows/driver stack does not provide it.
 
 ## Clone and build
 
 ```powershell
-git clone https://github.com/STanJK/le-audio-windows-relay.git
-cd le-audio-windows-relay
+git clone https://github.com/STanJK/LE-Audio-Relay.git
+cd LE-Audio-Relay
 ```
 
 For the current development documentation branch:
@@ -91,14 +91,14 @@ git switch docs/public-readme
 For normal local testing, build Release:
 
 ```powershell
-dotnet clean .\LEAudioRouter.csproj
-dotnet build .\LEAudioRouter.csproj -c Release
+dotnet clean .\LEAudioRelay.csproj
+dotnet build .\LEAudioRelay.csproj -c Release
 ```
 
 The executable is:
 
 ```text
-bin\Release\net10.0-windows\LEAudioRouter.exe
+bin\Release\net10.0-windows\LEAudioRelay.exe
 ```
 
 ## Configure Windows before launch
@@ -115,14 +115,14 @@ Example:
 Windows default render
     = NVIDIA HDMI
 
-LE Audio Router destination
+LE Audio Relay destination
     = Galaxy Buds3 Pro
 ```
 
-## Start LE Audio Router
+## Start LE Audio Relay
 
 ```powershell
-.\bin\Release\net10.0-windows\LEAudioRouter.exe
+.\bin\Release\net10.0-windows\LEAudioRelay.exe
 ```
 
 The program should appear in the system tray.
@@ -138,7 +138,7 @@ Running | Backend gen: N | Mode: GameEffects
 While Running:
 
 ```powershell
-Get-CimInstance Win32_Process -Filter "Name='LEAudioRouter.exe'" |
+Get-CimInstance Win32_Process -Filter "Name='LEAudioRelay.exe'" |
     Select-Object ProcessId,ParentProcessId,CommandLine
 ```
 
@@ -185,19 +185,19 @@ There is no separate enabled/disabled state.
 Logs are stored at:
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\
+%LOCALAPPDATA%\LEAudioRelay\logs\
 ```
 
 Open the folder:
 
 ```powershell
-explorer "$env:LOCALAPPDATA\LEAudioRouter\logs"
+explorer "$env:LOCALAPPDATA\LEAudioRelay\logs"
 ```
 
 Tail the newest log:
 
 ```powershell
-$log = Get-ChildItem "$env:LOCALAPPDATA\LEAudioRouter\logs\lifecycle-*.log" |
+$log = Get-ChildItem "$env:LOCALAPPDATA\LEAudioRelay\logs\lifecycle-*.log" |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 

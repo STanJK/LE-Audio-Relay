@@ -1,6 +1,6 @@
 # Documentation
 
-LE Audio Router documentation is split by audience and question rather than by source-code folder.
+LE Audio Relay documentation is split by audience and question rather than by source-code folder.
 
 ## Start here
 

@@ -1,6 +1,6 @@
 # Contributing
 
-LE Audio Router is currently most valuable as a reproducible Windows LE Audio experiment.
+LE Audio Relay is currently most valuable as a reproducible Windows LE Audio experiment.
 
 Code contributions are welcome, but high-quality hardware/driver test reports are equally important.
 
@@ -14,14 +14,14 @@ Please check:
 4. The Windows default output is a separate physical endpoint.
 5. You are testing a known candidate/commit.
 
-If the problem only exists because native Windows LE Audio is unavailable, LE Audio Router cannot fix it at the user-mode routing layer.
+If the problem only exists because native Windows LE Audio is unavailable, LE Audio Relay cannot fix it at the user-mode routing layer.
 
 ## Useful issue template
 
 Please include:
 
 ```text
-LE Audio Router version / commit:
+LE Audio Relay version / commit:
 Windows edition and build:
 PC model if relevant:
 Bluetooth controller:
@@ -157,7 +157,7 @@ If a change invalidates one of those decisions, update or supersede the ADR rath
 ## Build
 
 ```powershell
-dotnet build .\LEAudioRouter.csproj -c Release
+dotnet build .\LEAudioRelay.csproj -c Release
 ```
 
 ## Pull requests

@@ -138,13 +138,13 @@ More detail: **[How it works](docs/HOW_IT_WORKS.md)**.
 git clone https://github.com/STanJK/LE-Audio-Relay.git
 cd LE-Audio-Relay
 
-dotnet build .\LEAudioRouter.csproj
+dotnet build .\LEAudioRelay.csproj
 ```
 
 Run:
 
 ```powershell
-.\bin\Debug\net10.0-windows\LEAudioRouter.exe
+.\bin\Debug\net10.0-windows\LEAudioRelay.exe
 ```
 
 The application runs from the Windows system tray.
@@ -281,7 +281,7 @@ See **[Validation](docs/VALIDATION.md)** for exactly what has and has not been e
 Low-volume lifecycle logs are written to:
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\lifecycle-YYYY-MM-DD.log
+%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
 ```
 
 Examples of persisted events:

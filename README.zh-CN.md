@@ -143,13 +143,13 @@ Windows 普通应用先向一个稳定的物理端点渲染，例如 NVIDIA HDMI
 git clone https://github.com/STanJK/LE-Audio-Relay.git
 cd LE-Audio-Relay
 
-dotnet build .\LEAudioRouter.csproj -c Release
+dotnet build .\LEAudioRelay.csproj -c Release
 ```
 
 运行：
 
 ```powershell
-.\bin\Release\net10.0-windows\LEAudioRouter.exe
+.\bin\Release\net10.0-windows\LEAudioRelay.exe
 ```
 
 程序会常驻系统托盘。
@@ -283,7 +283,7 @@ physical capacity     80 ms
 路径：
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\lifecycle-YYYY-MM-DD.log
+%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
 ```
 
 只记录低频 Lifecycle：

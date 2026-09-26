@@ -1,6 +1,6 @@
 # How it works
 
-LE Audio Router is intentionally built as a small set of explicit ownership boundaries.
+LE Audio Relay is intentionally built as a small set of explicit ownership boundaries.
 
 At a high level:
 
@@ -95,7 +95,7 @@ Windows default output
     = separate physical sink
 
 LE Audio destination
-    = owned continuously by LE Audio Router
+    = owned continuously by LE Audio Relay
 ```
 
 Typical default sinks:
@@ -114,7 +114,7 @@ The physical sink is called "sacrificial" because its audible output is not the 
 
 Windows Process Loopback can capture render audio associated with a process tree or exclude a process tree.
 
-LE Audio Router uses the worker PID in:
+LE Audio Relay uses the worker PID in:
 
 ```text
 ExcludeTargetProcessTree
@@ -127,7 +127,7 @@ capture:
     all ordinary application render streams
 
 exclude:
-    LE Audio Router worker
+    LE Audio Relay worker
     worker child processes
 ```
 
@@ -450,7 +450,7 @@ Persistent lifecycle logs are intentionally low-volume.
 Path:
 
 ```text
-%LOCALAPPDATA%\LEAudioRouter\logs\lifecycle-YYYY-MM-DD.log
+%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
 ```
 
 Recorded:
