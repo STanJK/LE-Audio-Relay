@@ -190,18 +190,18 @@ internal sealed class PcmRelayBoundary
             return buffer.Length;
         }
 
+        int readFrames =
+            _ring.Read(
+                buffer,
+                requestedFrames);
+
         DriftTrimResult driftTrim =
-            _driftGuard.ApplyBeforeRender(
+            _driftGuard.ApplyAfterRender(
                 _ring);
 
         _telemetry.RecordClockRenderTrim(
             driftTrim.GradualFrames,
             driftTrim.EmergencyFrames);
-
-        int readFrames =
-            _ring.Read(
-                buffer,
-                requestedFrames);
 
         _telemetry.RecordRender(
             requestedFrames,
