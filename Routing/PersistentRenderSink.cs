@@ -22,7 +22,7 @@ internal sealed class PersistentRenderSink :
 
     public static PersistentRenderSink Create(
         MMDevice destination,
-        RouterMode mode,
+        RelayMode mode,
         IWaveProvider provider)
     {
         var builder =
