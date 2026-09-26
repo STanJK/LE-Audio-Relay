@@ -11,7 +11,7 @@ The current root implementation is only the **Shell bootstrap**.
 It establishes:
 
 - one long-lived Windows tray application;
-- right-click desired-state controls;
+- right-click desired-state controls for GameEffects, GameMedia, Media, and Default/unset;
 - GameEffects as the new desired default mode;
 - a frontend-neutral supervisor state object;
 - explicit reserved process modes for future backend workers and CLI control;

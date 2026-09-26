@@ -17,6 +17,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem _autoReconnectItem;
 
     private readonly ToolStripMenuItem _gameEffectsItem;
+    private readonly ToolStripMenuItem _gameMediaItem;
     private readonly ToolStripMenuItem _mediaItem;
     private readonly ToolStripMenuItem _defaultItem;
 
@@ -49,6 +50,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             "GameEffects",
             RouterMode.GameEffects);
 
+        _gameMediaItem = CreateModeItem(
+            "GameMedia",
+            RouterMode.GameMedia);
+
         _mediaItem = CreateModeItem(
             "Media",
             RouterMode.Media);
@@ -60,6 +65,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         modeMenu.DropDownItems.AddRange(
             [
                 _gameEffectsItem,
+                _gameMediaItem,
                 _mediaItem,
                 _defaultItem
             ]);
@@ -126,6 +132,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         _gameEffectsItem.Checked =
             _desired.Mode == RouterMode.GameEffects;
+
+        _gameMediaItem.Checked =
+            _desired.Mode == RouterMode.GameMedia;
 
         _mediaItem.Checked =
             _desired.Mode == RouterMode.Media;
