@@ -81,6 +81,14 @@ The useful conclusions are not the absolute coordinates themselves:
 
 </details>
 
+
+### Why keep the LE stream hot at all?
+
+Latency was not the original problem. On our Windows + Buds3 Pro / LinkBuds S test paths, **after the LE render stream was torn down and rebuilt (typically with CIS / stream reconstruction), stereo imaging could come back in a different state**: either normal, or abnormally wide with extreme L/R separation and hollow-sounding mono. Sometimes it recovered after roughly two seconds; sometimes it persisted until reconnect. We have not proven that CIS itself is the root cause, but teardown/rebuild is a repeatable trigger boundary.
+
+The first workaround was **VB-CABLE → Windows Listen → LE headset**. It could also keep the final render path alive, but at the cost of a roundabout path, opaque Windows buffering, and much higher latency. The current Process Loopback Relay keeps the useful part — **never let the final LE render go cold** — while removing that detour.
+
+
 ## Download
 
 **[Download LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
