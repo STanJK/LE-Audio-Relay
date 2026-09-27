@@ -15,43 +15,72 @@
 - 耳机断联重连或 Windows sleep/resume 后自动重建 route。
 - 相比 direct LE Audio 会增加一部分延迟，但我们当前的 E2E 估计仍低于传统 AAC/SBC A2DP 的典型范围。
 
-## 延迟：更接近 LE Audio，而不是传统 A2DP
+## 延迟：我们估计实际 E2E 约 55–75 ms
 
-下面的数字是**纯对比用的声学测试**，不是经过绝对标定的 event-to-ear E2E 延迟。
+下面这张表是我们目前对**实际 steady-state playback E2E** 的工程估计。它不是直接测出来的绝对值，而是结合相对声学测试、已知软件路径和各层 buffer/period 做的推测。
 
-| 路径 | 实测 median |
+| 路径 | 推测实际 E2E |
 |---|---:|
-| Direct Realtek 3.5 mm → mic | **60.10 ms** |
-| Relay → Realtek 3.5 mm → mic | **147.61 ms** |
-| Direct Buds3 Pro LE，hot stream → mic | **210.56 ms** |
-| Relay → Buds3 Pro LE，hot stream → mic | **316.71 ms** |
+| Realtek 3.5 mm 有线 | < ~20 ms |
+| **LE Audio Relay（Process Loopback + GameEffects）** | **~55–75 ms** |
+| Windows 原生 LE Audio，hot / steady-state | ~80–120 ms |
+| VB-CABLE + Windows Listen relay | ~120–150 ms |
+| Native Bluetooth AAC | ~150–200 ms |
+| Native Bluetooth SBC | ~180–250 ms |
 
-在同一套测量坐标里，Relay 相对 direct Realtek 约增加 **87.5 ms**，相对 direct Buds3 Pro LE 约增加 **106.2 ms**。
+> **这些数字是 speculative engineering estimates，不是直接 E2E 测量结果。**  
+> 我们真正做过的测试是一套**相对对比基线**：chirp + USB microphone + cross-correlation。原始坐标混入了 Windows 软件触发路径、USB mic、ADC、声学传播、时间戳/相关检测等固定和可变延迟，所以不能看到“240 ms”就理解成实际听感真的有 240 ms。
 
-| 路径 | 粗略 E2E 估计 |
-|---|---:|
-| Native / direct LE Audio | ~80–120 ms |
-| **LE Audio Relay** | **~120–150 ms** |
-| 传统 Bluetooth AAC | ~150–200 ms |
-| 传统 Bluetooth SBC | ~180–250 ms |
-
-> 上面这组 E2E 区间是**工程推测，不是实测结果，也不是 codec 规格值**。实际延迟取决于 Windows、控制器/驱动、耳机 buffer、codec/QoS 和 workload。
+一个重要细节是：Windows 原生 LE 在已经 hot 的 stream 上，比较坐标可以很低；但我们实测过 **silence teardown → cold start** 会额外引入约 **350 ms** 的启动罚时。Relay 持续保持目的端 render/CIS hot，正是为了绕开这类日常起播延迟。
 
 <details>
-<summary>对比测试方法与原始数据</summary>
+<summary>相对测试基线、方法与原始坐标</summary>
 
-使用生成的 chirp / correlation 信号，通过 USB 麦克风做声学采集，再用 cross-correlation 定位收到的信号。
+测试方法：
 
-因此绝对值包含 USB mic / ADC 和声学路径等固定延迟；真正有意义的是**同一测试装置下不同路径之间的差值**。
+```text
+generated chirp
+→ source path under test
+→ physical output / earbuds
+→ USB microphone
+→ ADC / capture path
+→ cross-correlation
+```
 
-- Relay → Buds3 Pro 早期 5-run：331.29、322.82、321.66、316.66、320.11 ms；median 321.66 ms。
-- Relay → Buds3 Pro hot steady-state：315.90–317.25 ms；median 316.71 ms。
-- Direct Realtek 10-run：59.24、60.50、60.00、60.17、60.02、60.27、60.08、60.12、60.11、60.08 ms；median 60.10 ms。
-- Relay → Realtek hot：138.34–157.59 ms；median 147.61 ms。
-- Direct Buds3 Pro hot：209.63–210.91 ms；median 210.56 ms。
-- Direct Buds cold-start 测得约 350.58 ms 的启动额外开销；不计入 steady-state 表。
+因此这些数字只适合做**同一装置、同一方法下的 A/B 差值和排序**，不适合直接当作用户事件到耳朵的绝对 E2E。
+
+部分结果：
+
+| 路径 | 对比测试坐标 |
+|---|---:|
+| Realtek 3.5 mm 有线 → mic | median **60.10 ms** |
+| Native Buds3 Pro LE，hot → mic | median **210.56 ms** |
+| **Current Relay / GameEffects，SRC→MIC** | median **240.25 ms** |
+| Legacy VB-CABLE relay → Buds3 Pro，hot | median **316.71 ms** |
+| Native Buds3 Pro LE cold-start | hot 基线 + ~**350.58 ms** startup penalty，约 **559 ms** 坐标 |
+
+Current Relay / GameEffects 的重复结果：
+
+- SRC→MIC median **240.25 ms**, range **238.94–240.78 ms**
+- LOOP→MIC median **215.62 ms**, range **214.69–215.87 ms**
+- SRC→LOOP 约 **24.5 ms**
+
+Direct Realtek 10-run：
+
+```text
+59.24, 60.50, 60.00, 60.17, 60.02,
+60.27, 60.08, 60.12, 60.11, 60.08 ms
+```
+
+这里最重要的不是绝对值，而是：
+
+- current Process Loopback + GameEffects 比旧 VB-CABLE relay 路径明显更短；
+- native LE hot 本身并不慢；
+- native LE 日常最大的坑之一是 teardown 后的 cold-start/onset penalty；
+- Relay 用 persistent render 把这类 cold-start 从正常播放路径里尽量拿掉。
 
 </details>
+
 ## 下载
 
 **[下载 LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
