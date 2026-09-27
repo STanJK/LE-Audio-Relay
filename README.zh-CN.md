@@ -81,6 +81,14 @@ Direct Realtek 10-run：
 
 </details>
 
+
+### 为什么还要把 LE stream 一直保持 hot
+
+这个项目最初并不只是为了延迟。在我们的 Windows + Buds3 Pro / LinkBuds S 测试里，**LE render teardown 后重新建链（通常伴随 CIS / stream reconstruction）会随机回到不同的立体声状态**：正常，或者明显过宽、左右严重分离，mono 内容听起来发空。有时异常约 2 秒后会自己恢复，有时会一直持续到 reconnect。我们还没有证明根因一定在 CIS 本身，但“teardown/rebuild 是触发边界”这一点可以重复观察到。
+
+最早的 workaround 是 **VB-CABLE → Windows Listen → LE headset**：它也能靠持续占用最终 render path 来避免频繁 teardown，但链路很绕、黑箱 buffer 多、延迟明显更高。现在的 Process Loopback Relay 保留“**让最终 LE render 始终活着**”这个关键思路，同时把那条绕路拿掉。
+
+
 ## 下载
 
 **[下载 LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
