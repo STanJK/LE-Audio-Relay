@@ -1498,10 +1498,39 @@ internal sealed class BackendSupervisor :
 
         public ValueTask DisposeAsync()
         {
-            Writer.Dispose();
-            Reader.Dispose();
-            Pipe.Dispose();
-            Process.Dispose();
+            // Break the transport first so any outstanding read/write cannot
+            // keep cleanup coupled to a dead worker.
+            try
+            {
+                Pipe.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Writer.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Reader.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                Process.Dispose();
+            }
+            catch
+            {
+            }
 
             return ValueTask.CompletedTask;
         }
