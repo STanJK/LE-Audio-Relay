@@ -15,43 +15,72 @@
 - Automatically rebuilds the route after endpoint reconnect and Windows sleep/resume.
 - Adds some latency compared with direct LE Audio, while our current E2E estimate remains below typical classic AAC/SBC A2DP ranges.
 
-## Latency — closer to LE Audio than old-school A2DP
+## Latency — estimated real playback E2E: ~55–75 ms
 
-These numbers are **comparative acoustic measurements**, not calibrated absolute event-to-ear E2E latency.
+The table below is our current engineering estimate of **actual steady-state playback E2E**. These are not directly measured absolute values; they are inferred from relative acoustic tests plus the known software path and buffering budget.
 
-| Path | Measured median |
+| Path | Estimated actual E2E |
 |---|---:|
-| Direct Realtek 3.5 mm → mic | **60.10 ms** |
-| Relay → Realtek 3.5 mm → mic | **147.61 ms** |
-| Direct Buds3 Pro LE, hot stream → mic | **210.56 ms** |
-| Relay → Buds3 Pro LE, hot stream → mic | **316.71 ms** |
+| Realtek 3.5 mm wired | < ~20 ms |
+| **LE Audio Relay (Process Loopback + GameEffects)** | **~55–75 ms** |
+| Windows native LE Audio, hot / steady-state | ~80–120 ms |
+| VB-CABLE + Windows Listen relay | ~120–150 ms |
+| Native Bluetooth AAC | ~150–200 ms |
+| Native Bluetooth SBC | ~180–250 ms |
 
-In the same measurement coordinate, Relay added about **87.5 ms** over direct Realtek and **106.2 ms** over direct Buds3 Pro LE.
+> **These are speculative engineering estimates, not direct E2E measurements.**  
+> Our actual test is a **relative comparison baseline** using chirps, a USB microphone, and cross-correlation. The raw coordinate contains Windows software-trigger delay, USB-mic/ADC delay, acoustic propagation, timestamp/reference offsets, and correlation-path bias. A raw result like “240 ms” therefore does **not** mean the user is actually hearing 240 ms of event-to-ear latency.
 
-| Path | Rough E2E estimate |
-|---|---:|
-| Native / direct LE Audio | ~80–120 ms |
-| **LE Audio Relay** | **~120–150 ms** |
-| Classic Bluetooth AAC | ~150–200 ms |
-| Classic Bluetooth SBC | ~180–250 ms |
-
-> These E2E ranges are **speculative engineering estimates, not measurements and not codec specifications**. Actual latency depends on Windows, controller/driver, device buffering, codec/QoS, and workload.
+One important nuance: native Windows LE can look very good once its stream is already hot, but we measured about **350 ms of extra cold-start penalty** after teardown. Relay keeps the destination render/CIS hot specifically to avoid paying that startup cost during ordinary playback.
 
 <details>
-<summary>Comparative test method and raw results</summary>
+<summary>Relative test baseline, method, and raw coordinates</summary>
 
-We used a generated chirp/correlation signal, acoustic capture with a USB microphone, and cross-correlation to locate the received signal.
+Test path:
 
-The absolute coordinate therefore includes fixed USB mic / ADC and acoustic-path delay. The useful result is the **difference between paths measured with the same setup**.
+```text
+generated chirp
+→ source path under test
+→ physical output / earbuds
+→ USB microphone
+→ ADC / capture path
+→ cross-correlation
+```
 
-- Relay → Buds3 Pro early 5-run series: 331.29, 322.82, 321.66, 316.66, 320.11 ms; median 321.66 ms.
-- Relay → Buds3 Pro hot steady-state: 315.90–317.25 ms; median 316.71 ms.
-- Direct Realtek 10-run series: 59.24, 60.50, 60.00, 60.17, 60.02, 60.27, 60.08, 60.12, 60.11, 60.08 ms; median 60.10 ms.
-- Relay → Realtek hot: 138.34–157.59 ms; median 147.61 ms.
-- Direct Buds3 Pro hot: 209.63–210.91 ms; median 210.56 ms.
-- Direct Buds cold-start showed about 350.58 ms of startup overhead; excluded from the steady-state table.
+These values are therefore useful for **A/B differences and ordering under the same setup**, not as absolute user event-to-ear latency.
+
+Selected results:
+
+| Path | Comparative test coordinate |
+|---|---:|
+| Realtek 3.5 mm wired → mic | median **60.10 ms** |
+| Native Buds3 Pro LE, hot → mic | median **210.56 ms** |
+| **Current Relay / GameEffects, SRC→MIC** | median **240.25 ms** |
+| Legacy VB-CABLE relay → Buds3 Pro, hot | median **316.71 ms** |
+| Native Buds3 Pro LE cold-start | hot baseline + ~**350.58 ms** startup penalty, about **559 ms** coordinate |
+
+Current Relay / GameEffects repeatability:
+
+- SRC→MIC median **240.25 ms**, range **238.94–240.78 ms**
+- LOOP→MIC median **215.62 ms**, range **214.69–215.87 ms**
+- SRC→LOOP about **24.5 ms**
+
+Direct Realtek 10-run baseline:
+
+```text
+59.24, 60.50, 60.00, 60.17, 60.02,
+60.27, 60.08, 60.12, 60.11, 60.08 ms
+```
+
+The useful conclusions are not the absolute coordinates themselves:
+
+- current Process Loopback + GameEffects is materially shorter than the old VB-CABLE relay path;
+- native LE is not inherently slow once already hot;
+- teardown/cold-start can dominate native LE responsiveness in ordinary use;
+- persistent render lets Relay remove much of that startup penalty from the normal playback path.
 
 </details>
+
 ## Download
 
 **[Download LEAudioRelay.exe — v0.21.0-daily.2](https://github.com/STanJK/LE-Audio-Relay/releases/download/v0.21.0-daily.2/LEAudioRelay.exe)**
