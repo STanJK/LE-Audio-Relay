@@ -22,6 +22,9 @@ internal sealed class BackendSupervisor :
     private static readonly TimeSpan WorkerHeartbeatTimeout =
         TimeSpan.FromSeconds(4);
 
+    private static readonly TimeSpan WorkerShutdownCommandTimeout =
+        TimeSpan.FromMilliseconds(500);
+
     private static readonly TimeSpan WorkerShutdownTimeout =
         TimeSpan.FromSeconds(2);
 
@@ -993,25 +996,46 @@ internal sealed class BackendSupervisor :
         WorkerGeneration generation,
         CancellationToken cancellationToken)
     {
-        try
-        {
-            await generation.Writer.WriteLineAsync(
-                WorkerProtocol.Serialize(
-                    new WorkerEnvelope(
-                        WorkerProtocol.Shutdown,
-                        generation.Generation)));
-        }
-        catch
-        {
-        }
+        bool shutdownCommandDelivered =
+            false;
 
         try
         {
-            await generation.Completion.WaitAsync(
-                WorkerShutdownTimeout,
+            Task shutdownWrite =
+                generation.Writer.WriteLineAsync(
+                    WorkerProtocol.Serialize(
+                        new WorkerEnvelope(
+                            WorkerProtocol.Shutdown,
+                            generation.Generation)));
+
+            await shutdownWrite.WaitAsync(
+                WorkerShutdownCommandTimeout,
                 cancellationToken);
+
+            shutdownCommandDelivered =
+                true;
         }
         catch
+        {
+            // Shutdown is a courtesy request. A broken worker/control pipe
+            // must never be allowed to hold the supervisor loop indefinitely.
+        }
+
+        if (shutdownCommandDelivered)
+        {
+            try
+            {
+                await generation.Completion.WaitAsync(
+                    WorkerShutdownTimeout,
+                    cancellationToken);
+            }
+            catch
+            {
+                TryKill(
+                    generation.Process);
+            }
+        }
+        else
         {
             TryKill(
                 generation.Process);
