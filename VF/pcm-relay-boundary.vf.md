@@ -66,11 +66,11 @@ text "RouteTelemetry separates startup/runtime audio drops, silent drops, startu
 evidence "telemetry"
 -->
 
-**Why:** Keepalive and minimal scheduling elasticity are transport invariants; full clock control is a separate concern.
+**Why:** Keepalive and minimal scheduling elasticity are transport invariants; full clock control is a separate concern. [explain →](./round4-shell.fact.md#timing-is-intentionally-layered)
 
-**What:** One SPSC boundary owns startup gating, retained cushion, zero-backed render, and drop accounting.
+**What:** One SPSC boundary owns startup gating, retained cushion, zero-backed render, and drop accounting. [explain →](./round4-shell.fact.md#timing-is-intentionally-layered)
 
-**Outcome:** The destination stays continuously rendered without treating the full 80 ms capacity as normal queue latency.
+**Outcome:** The destination stays continuously rendered without treating the full 80 ms capacity as normal queue latency. [explain →](./round4-shell.fact.md#timing-is-intentionally-layered)
 
 ```mermaid
 flowchart TD
