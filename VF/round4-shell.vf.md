@@ -88,21 +88,31 @@ evidence "adr-power"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="product-lifetime"
+
+    %% vf:element kind="input"
     start(["Application start"])
+
+    %% vf:element kind="action"
     tray["Tray / Supervisor lifetime"]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.power-lifecycle"
     power[["Power lifecycle facts"]]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.endpoint-lifecycle"
     endpoint[["Endpoint reality"]]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation"
     worker[["Worker generation policy"]]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.lifecycle-journal"
     journal[["Lifecycle evidence"]]
 
+    %% vf:element kind="output"
     exit(["Exit"])
 
     start --> tray
@@ -110,9 +120,9 @@ flowchart TD
     power --> endpoint
     endpoint --> worker
     worker --> endpoint
-    tray -.-> journal
-    endpoint -.-> journal
-    worker -.-> journal
+    tray --> journal
+    endpoint --> journal
+    worker --> journal
     endpoint --> exit
 ```
 
@@ -120,7 +130,7 @@ flowchart TD
 node leaudio-router.round4-shell
 flow product-lifetime
 audience human
-purpose "Cross-layer product-lifetime projection; child nodes own detailed lifecycle mechanics."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 START tray application
