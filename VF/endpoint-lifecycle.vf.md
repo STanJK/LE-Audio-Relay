@@ -82,16 +82,35 @@ evidence "supervisor"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="endpoint-reconciliation"
+
+    %% vf:element kind="input"
     event(["Core Audio topology event / safety wake"])
+
+    %% vf:element kind="action"
     wake["Coalesce supervisor wake"]
+
+    %% vf:element kind="action"
     probe["Enumerate active render + default multimedia endpoint"]
+
+    %% vf:element kind="decision"
     absent{"Target absent?"}
+
+    %% vf:element kind="decision"
     blocked{"Ambiguous or default unsafe?"}
+
+    %% vf:element kind="output"
     wait(["WaitingForEndpoint / zero workers"])
+
+    %% vf:element kind="output"
     stop(["TopologyBlocked / zero workers"])
+
+    %% vf:element kind="output"
     eligible(["Worker eligible"])
 
-    event --> wake --> probe --> absent
+    event --> wake
+    wake --> probe
+    probe --> absent
     absent -->|"yes"| wait
     absent -->|"no"| blocked
     blocked -->|"yes"| stop
@@ -102,7 +121,7 @@ flowchart TD
 node leaudio-router.round4-shell.endpoint-lifecycle
 flow endpoint-reconciliation
 audience human
-purpose "Implementation-aware topology reconciliation without duplicating worker policy."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 ON endpoint notification:
