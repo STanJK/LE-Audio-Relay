@@ -73,28 +73,48 @@ evidence "generation"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="bounded-stop"
+
+    %% vf:element kind="input"
     stop(["Stop generation requested"])
+
+    %% vf:element kind="action"
     write["Send SHUTDOWN"]
+
+    %% vf:element kind="decision"
     sent{"Delivered within 500 ms?"}
+
+    %% vf:element kind="action"
     graceful["Wait for generation completion"]
+
+    %% vf:element kind="decision"
     exited{"Completed within 2 s?"}
+
+    %% vf:element kind="action"
     kill["Kill worker process tree"]
+
+    %% vf:element kind="action"
     pipe["Dispose control pipe first"]
+
+    %% vf:element kind="output"
     done(["Generation abandoned"])
 
-    stop --> write --> sent
-    sent -->|"yes"| graceful --> exited
+    stop --> write
+    write --> sent
+    sent -->|"yes"| graceful
+    graceful --> exited
     sent -->|"no"| kill
     exited -->|"yes"| pipe
     exited -->|"no"| kill
-    kill --> pipe --> done
+    kill --> pipe
+    pipe --> done
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation.worker-control-liveness
 flow bounded-stop
 audience human
-purpose "Supervisor liveness invariant for worker shutdown and cleanup."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 TRY send SHUTDOWN
