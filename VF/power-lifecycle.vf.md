@@ -74,14 +74,43 @@ evidence "supervisor"
 
 ```mermaid
 flowchart TD
-    suspend(["PBT_APMSUSPEND"]) --> fact["IsSuspended = true; SuspendCount++"]
-    fact --> wait(["Supervisor Suspended"])
-    wait --> resume(["PBT_APMRESUME*"])
-    resume --> revision["PowerRevision++"]
-    revision --> probe["Re-probe endpoint reality"]
-    probe --> stale{"Existing generation revision stale?"}
-    stale -->|"yes"| replace["Replace generation"]
-    stale -->|"no worker / current"| done(["Current power epoch"])
+    %% vf:flow id="power-lifecycle"
+
+    %% vf:element kind="input"
+    suspend(["PBT_APMSUSPEND"])
+
+    %% vf:element kind="action"
+    fact["IsSuspended = true; SuspendCount++"]
+
+    %% vf:element kind="output"
+    wait(["Supervisor Suspended"])
+
+    %% vf:element kind="input"
+    resume(["PBT_APMRESUME*"])
+
+    %% vf:element kind="action"
+    revision["PowerRevision++"]
+
+    %% vf:element kind="action"
+    probe["Re-probe endpoint reality"]
+
+    %% vf:element kind="decision"
+    stale{"Existing generation revision stale?"}
+
+    %% vf:element kind="action"
+    replace["Replace generation"]
+
+    %% vf:element kind="output"
+    done(["Current power epoch"])
+
+    suspend --> fact
+    fact --> wait
+    wait --> resume
+    resume --> revision
+    revision --> probe
+    probe --> stale
+    stale -->|"yes"| replace
+    stale -->|"no worker / current"| done
     replace --> done
 ```
 
@@ -89,7 +118,7 @@ flowchart TD
 node leaudio-router.round4-shell.power-lifecycle
 flow power-lifecycle
 audience human
-purpose "Power epoch invalidation projection."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 ON suspend:
