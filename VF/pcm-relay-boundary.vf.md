@@ -74,30 +74,47 @@ evidence "telemetry"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="pcm-boundary"
+
+    %% vf:element kind="input"
     packet(["Capture packet"])
+
+    %% vf:element kind="action"
     write["Write audio/silence into bounded ring"]
+
+    %% vf:element kind="input"
     render(["Render request: clear buffer to zeros"])
+
+    %% vf:element kind="decision"
     ready{"ARMED and request + cushion available?"}
+
+    %% vf:element kind="action"
     activate["Trim startup excess; enter RELAY"]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary.provisional-positive-drift-guard"
     guard[["Apply provisional positive-drift guard"]]
 
+    %% vf:element kind="action"
     read["Read available ring frames"]
+
+    %% vf:element kind="output"
     output(["Return full zero-backed buffer"])
 
     packet --> write
     render --> ready
-    ready -->|"yes"| activate --> read
+    ready -->|"yes"| activate
+    activate --> read
     ready -->|"no / already relay"| read
-    read --> guard --> output
+    read --> guard
+    guard --> output
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary
 flow pcm-boundary
 audience human
-purpose "Callback-order and buffer invariant projection."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 ON capture packet:
