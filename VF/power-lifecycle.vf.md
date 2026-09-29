@@ -66,11 +66,11 @@ text "While IsSuspended is true, supervision publishes Suspended and waits; it d
 evidence "supervisor"
 -->
 
-**Why:** Suspend/resume is treated as a route-generation boundary instead of teaching every WASAPI object to survive sleep.
+**Why:** Suspend/resume is treated as a route-generation boundary instead of teaching every WASAPI object to survive sleep. [explain →](./round4-shell.fact.md#observers-report-facts-supervision-owns-policy)
 
-**What:** Power callbacks produce a revisioned fact; supervision owns replacement.
+**What:** Power callbacks produce a revisioned fact; supervision owns replacement. [explain →](./round4-shell.fact.md#observers-report-facts-supervision-owns-policy)
 
-**Outcome:** A route generation is never trusted across a suspend/resume cycle.
+**Outcome:** A route generation is never trusted across a suspend/resume cycle. [explain →](./round4-shell.fact.md#observers-report-facts-supervision-owns-policy)
 
 ```mermaid
 flowchart TD
