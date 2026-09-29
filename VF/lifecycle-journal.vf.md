@@ -59,11 +59,40 @@ evidence "shell"
 
 **Outcome:** Failures can be correlated with reconnect, power, worker, and user actions without making logging part of the audio critical path. [explain →](./lifecycle-journal.fact.md#outcome)
 
-```text
-APP_START / APP_EXIT
-POWER_SUSPEND / POWER_RESUME
-ENDPOINT_AVAILABLE / ENDPOINT_ABSENT / ENDPOINT_AMBIGUOUS
-TOPOLOGY_BLOCKED
-WORKER_RUNNING / WORKER_STOP / WORKER_EXIT / WORKER_REPLACE
-MODE_CHANGE / MANUAL_RESTART
+```mermaid
+flowchart TD
+    %% vf:flow id="lifecycle-journal"
+
+    %% vf:element kind="input"
+    transition(["Low-frequency lifecycle transition"])
+
+    %% vf:element kind="action"
+    append["Append sanitized line to daily journal"]
+
+    %% vf:element kind="output"
+    history(["Durable lifecycle history"])
+
+    transition --> append
+    append --> history
 ```
+
+<!--vf:pseudocode
+node leaudio-router.round4-shell.lifecycle-journal
+flow lifecycle-journal
+audience human
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
+-->
+```text
+ON low-frequency lifecycle transition:
+    sanitize optional detail
+    append one timestamped UTF-8 line to today's lifecycle log
+    ignore logging I/O failures
+
+DO NOT persist:
+    heartbeat
+    ring occupancy
+    overflow warnings
+    drift warnings
+    per-second route telemetry
+```
+<!--vf:end-->
