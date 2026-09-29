@@ -90,19 +90,32 @@ evidence "supervisor"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="worker-generation"
+
+    %% vf:element kind="input"
     reconcile(["Eligible supervisor reconciliation"])
+
+    %% vf:element kind="decision"
     stale{"Generation absent / stale / completed?"}
+
+    %% vf:element kind="action"
     spawn["Allocate generation + spawn worker"]
+
+    %% vf:element kind="action"
     hello["Require HELLO"]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session"
     route[["Start real RouteSession"]]
 
+    %% vf:element kind="action"
     monitor["Monitor heartbeat / pipe / process / revisions"]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.worker-control-liveness"
     stop[["Bounded stop / forced kill"]]
 
+    %% vf:element kind="output"
     running(["Current RUNNING generation"])
 
     reconcile --> stale
@@ -110,7 +123,10 @@ flowchart TD
     stale -->|"yes, old exists"| stop
     stop --> spawn
     stale -->|"yes, none"| spawn
-    spawn --> hello --> route --> monitor --> running
+    spawn --> hello
+    hello --> route
+    route --> monitor
+    monitor --> running
     running --> monitor
     monitor -->|"stale / completed"| stop
 ```
@@ -119,7 +135,7 @@ flowchart TD
 node leaudio-router.round4-shell.worker-generation
 flow worker-generation
 audience human
-purpose "Generation ownership and replacement projection; shutdown liveness is delegated to its child node."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 IF topology is eligible:
