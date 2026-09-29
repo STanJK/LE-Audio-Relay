@@ -6,16 +6,16 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "Launching LEAudioRelay without explicit CLI arguments starts the Windows tray/supervisor product lifetime."
-problem "The product needs a stable user-facing lifetime that continuously expresses routing intent while endpoint availability and disposable audio-route generations change underneath it."
-behavior "Keep one tray/supervisor process alive, reconcile Windows endpoint reality from event-driven lifecycle observations, expose only route category and manual restart controls, and maintain one disposable worker generation only when topology is eligible."
-exit "The application remains alive in Running, WaitingForEndpoint, TopologyBlocked, or RecoveringFault states until the user exits."
+entry "Launching LEAudioRelay normally starts the durable Windows tray/supervisor product lifetime."
+problem "Routing intent must survive endpoint absence, worker replacement, and Windows power transitions without pushing audio-object ownership into the UI process."
+behavior "Keep one tray/supervisor process alive, observe Windows facts, reconcile whether one disposable route generation should exist, and expose only mode, manual restart, and Exit as user controls."
+exit "The product remains in a truthful lifecycle state until the user exits; route generations may be created, replaced, or absent underneath it."
 -->
 
 <!--vf:source
 id "program"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Program.cs"
 symbol "Program"
 -->
@@ -23,148 +23,122 @@ symbol "Program"
 <!--vf:source
 id "shell"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Shell/TrayApplicationContext.cs"
 symbol "TrayApplicationContext"
 -->
 
 <!--vf:source
-id "architecture"
+id "supervisor"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
-path "docs/ARCHITECTURE.md"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
+path "Supervision/BackendSupervisor.cs"
+symbol "BackendSupervisor"
 -->
 
 <!--vf:source
-id "adr-worker-boundary"
+id "adr-worker"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
 <!--vf:source
-id "adr-endpoint-reconciliation"
+id "adr-endpoint"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "docs/decisions/0002-event-driven-endpoint-reconciliation.md"
+-->
+
+<!--vf:source
+id "adr-power"
+repo "STanJK/LE-Audio-Relay"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
+path "docs/decisions/0003-power-revision-route-invalidation.md"
 -->
 
 <!--vf:claim
 id "application-alive-is-routing-intent"
 type "fact"
-text "Round4 defines application lifetime itself as routing intent and exposes no independent Router Enabled state."
-evidence "architecture"
+text "The tray exposes no independent enabled state: while the application is alive, supervision interprets that lifetime as routing intent."
 evidence "shell"
 -->
 
 <!--vf:claim
-id "recovery-is-not-user-configurable"
+id "two-process-roles-only"
 type "fact"
-text "Round4 defines recovery as automatic product behavior and exposes no Auto reconnect control."
-evidence "architecture"
-evidence "shell"
+text "The accepted runtime model has one Tray/Supervisor process and at most one current Audio Route Worker process; capture, render, timing, telemetry, and lifecycle observation are not separate process roles."
+evidence "adr-worker"
 -->
 
 <!--vf:claim
-id "worker-process-is-single-isolation-boundary"
+id "observation-and-policy-are-separated"
 type "fact"
-text "Round4 permits one tray/supervisor process role and one current Audio Route Worker process role, with no process split for capture, render, timing, telemetry, or lifecycle observation."
-evidence "adr-worker-boundary"
+text "Endpoint and power observers report facts or wake-ups; BackendSupervisor owns the policy that creates, replaces, or removes a worker generation."
+evidence "supervisor"
+evidence "adr-endpoint"
+evidence "adr-power"
 -->
 
-<!--vf:claim
-id "endpoint-reconciliation-is-event-driven"
-type "fact"
-text "Round4 uses Core Audio notifications to wake supervision and fresh endpoint enumeration to determine whether a worker should exist."
-evidence "adr-endpoint-reconciliation"
-evidence "architecture"
--->
+**Why:** Product lifetime is intentionally more durable than any one audio route generation.
 
-**Why:** Round4 separates durable product lifetime, observed Windows reality, and disposable route generations without exposing internal lifecycle policy as user configuration. [explain →](./round4-shell.fact.md#root-why)
+**What:** Shell owns interaction, Lifecycle owns observations, Supervision owns route-generation policy, and one worker owns one route generation.
 
-**What:** The tray owns user interaction; Lifecycle reports endpoint facts; Supervision decides whether a worker should exist; one worker owns one real audio route generation. [explain →](./round4-shell.fact.md#root-what)
-
-**Outcome:** The application can remain quietly alive while Buds are absent, then start a fresh route generation only after Windows topology becomes eligible again. [explain →](./round4-shell.fact.md#root-outcome)
+**Outcome:** Endpoint loss, reconnect, restart, or resume can replace route state without requiring the user to restart the tray application.
 
 ```mermaid
 flowchart TD
-    %% vf:flow id="product-lifetime"
-
-    %% vf:element kind="input"
     start(["Application start"])
+    tray["Tray / Supervisor lifetime"]
 
-    %% vf:element kind="action"
-    %% vf:op call target="Application.Run" args="TrayApplicationContext" source="program"
-    tray["Start tray / supervisor lifetime"]
-
-    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.power-lifecycle"
-    power[["Reconcile power epoch"]]
+    power[["Power lifecycle facts"]]
 
-    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.endpoint-lifecycle"
-    lifecycle[["Reconcile endpoint reality"]]
+    endpoint[["Endpoint reality"]]
 
-    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation"
-    worker[["Maintain eligible route generation"]]
+    worker[["Worker generation policy"]]
 
-    %% vf:element kind="output"
-    %% vf:op return value="0" source="program"
-    exit(["Application exit"])
+    %% vf:expand node="leaudio-router.round4-shell.lifecycle-journal"
+    journal[["Lifecycle evidence"]]
+
+    exit(["Exit"])
 
     start --> tray
     tray --> power
-    power --> lifecycle
-    lifecycle --> worker
-    worker --> lifecycle
-    lifecycle --> exit
+    power --> endpoint
+    endpoint --> worker
+    worker --> endpoint
+    tray -.-> journal
+    endpoint -.-> journal
+    worker -.-> journal
+    endpoint --> exit
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell
 flow product-lifetime
 audience human
-purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
+purpose "Cross-layer product-lifetime projection; child nodes own detailed lifecycle mechanics."
 -->
 ```text
-ON normal application start:
-    create the tray shell
-    start endpoint observation
-    start the backend supervisor
+START tray application
 
-    WHILE the tray application is alive:
-        treat application lifetime as routing intent
-        reconcile current Windows power reality
+WHILE application is alive:
+    observe current power and endpoint facts
+    let supervision reconcile whether one worker generation should exist
 
-        IF Windows is suspended:
-            create no new worker
-            wait for resume
+    IF suspended or target absent or topology blocked:
+        allow zero worker generations
 
-        IF resume increments PowerRevision:
-            treat any pre-resume worker as stale
+    ELSE:
+        maintain one eligible healthy generation
 
-        reconcile current Windows endpoint reality
+    user may change render category, request route restart, or Exit
 
-        IF target endpoint is absent:
-            maintain zero route workers
-            wait quietly for topology change
-
-        ELSE IF topology is eligible:
-            maintain one healthy route worker generation
-
-        IF eligible route generation fails:
-            recover automatically with bounded backoff
-
-        allow the user to:
-            change render category
-            request a route restart
-            exit the application
-
-    ON Exit:
-        stop the current worker generation
-        stop endpoint observation
-        stop supervision
-        terminate the tray process
+ON Exit:
+    stop the current generation with bounded worker-control semantics
+    dispose observers and tray resources
 ```
 <!--vf:end-->

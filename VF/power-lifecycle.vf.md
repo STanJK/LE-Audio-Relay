@@ -7,16 +7,16 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "The Tray process receives WM_POWERBROADCAST suspend/resume messages through PowerObserver."
-problem "A route generation created before Windows suspend must not be assumed trustworthy after resume, while the suspend callback itself must remain nonblocking."
-behavior "Convert WM_POWERBROADCAST into an in-memory PowerSnapshot and wake supervision; increment PowerRevision on resume; do not create workers while suspended; replace any worker generation whose stored PowerRevision predates the current revision."
-exit "After resume, endpoint reality is re-probed and only a fresh post-resume generation may return to RUNNING."
+entry "The Tray process receives WM_POWERBROADCAST suspend/resume messages."
+problem "A route created before suspend must not be trusted after resume, while the Windows power callback itself must stay cheap and nonblocking."
+behavior "PowerObserver updates only PowerSnapshot and wakes supervision; resume advances PowerRevision, and any generation created under an older revision becomes stale."
+exit "No new worker is created while suspended; after resume, endpoint reality is re-probed and only a current-revision generation may return to Running."
 -->
 
 <!--vf:source
 id "observer"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Lifecycle/PowerObserver.cs"
 symbol "PowerObserver"
 -->
@@ -24,7 +24,7 @@ symbol "PowerObserver"
 <!--vf:source
 id "snapshot"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Lifecycle/PowerSnapshot.cs"
 symbol "PowerSnapshot"
 -->
@@ -32,7 +32,7 @@ symbol "PowerSnapshot"
 <!--vf:source
 id "supervisor"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
 -->
@@ -40,91 +40,71 @@ symbol "BackendSupervisor"
 <!--vf:source
 id "adr"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "docs/decisions/0003-power-revision-route-invalidation.md"
 -->
 
 <!--vf:claim
-id "power-callback-is-fact-only"
+id "callback-is-fact-only"
 type "fact"
-text "PowerObserver handles WM_POWERBROADCAST by updating PowerSnapshot and raising Changed; WASAPI teardown/rebuild remains outside the window callback."
+text "PowerObserver updates PowerSnapshot and raises Changed from WM_POWERBROADCAST handling; it does not enumerate endpoints or touch WASAPI route objects."
 evidence "observer"
 evidence "adr"
 -->
 
 <!--vf:claim
-id "resume-invalidates-old-generation"
+id "resume-invalidates-generation"
 type "fact"
-text "BackendSupervisor stores the PowerRevision of each WorkerGeneration and treats a generation as stale when its revision differs from the current PowerSnapshot revision."
+text "Each WorkerGeneration records the PowerRevision at creation, and BackendSupervisor treats a revision mismatch as stale generation evidence after resume."
 evidence "supervisor"
 -->
 
 <!--vf:claim
-id "suspended-state-does-not-create-workers"
+id "suspended-means-no-new-worker"
 type "fact"
-text "While PowerSnapshot.IsSuspended is true, supervision publishes Suspended and waits for another wake without creating a new worker generation."
+text "While IsSuspended is true, supervision publishes Suspended and waits; it does not create a new worker generation."
 evidence "supervisor"
 -->
 
-**Why:** Sleep/resume is a lifecycle boundary for the whole route generation, not a condition every individual WASAPI object should be taught to survive. [explain →](./round4-shell.fact.md#power-why)
+**Why:** Suspend/resume is treated as a route-generation boundary instead of teaching every WASAPI object to survive sleep.
 
-**What:** A tiny power observer records suspend/resume facts; supervision uses PowerRevision to invalidate and replace pre-resume generations. [explain →](./round4-shell.fact.md#power-what)
+**What:** Power callbacks produce a revisioned fact; supervision owns replacement.
 
-**Outcome:** Every route generation that reaches RUNNING after resume is newly constructed in the current power epoch. [explain →](./round4-shell.fact.md#power-outcome)
+**Outcome:** A route generation is never trusted across a suspend/resume cycle.
 
 ```mermaid
 flowchart TD
-    %% vf:flow id="power-lifecycle"
-
-    suspend(["PBT_APMSUSPEND"])
-    fact["Set IsSuspended / increment SuspendCount"]
-    wait(["Supervisor Suspended"])
-
-    resume(["PBT_APMRESUME*"])
-    revision["Set Awake / increment PowerRevision"]
-    stale{"Worker revision stale?"}
-    replace["Replace generation"]
-    reconcile(["Re-probe endpoint reality"])
-
-    suspend --> fact
-    fact --> wait
-    wait --> resume
-    resume --> revision
-    revision --> stale
-    stale -->|"yes"| replace
-    stale -->|"no worker"| reconcile
-    replace --> reconcile
+    suspend(["PBT_APMSUSPEND"]) --> fact["IsSuspended = true; SuspendCount++"]
+    fact --> wait(["Supervisor Suspended"])
+    wait --> resume(["PBT_APMRESUME*"])
+    resume --> revision["PowerRevision++"]
+    revision --> probe["Re-probe endpoint reality"]
+    probe --> stale{"Existing generation revision stale?"}
+    stale -->|"yes"| replace["Replace generation"]
+    stale -->|"no worker / current"| done(["Current power epoch"])
+    replace --> done
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.power-lifecycle
 flow power-lifecycle
 audience human
-purpose "Implementation-aware projection of suspend/resume reconciliation."
+purpose "Power epoch invalidation projection."
 -->
 ```text
-ON PBT_APMSUSPEND:
-    set PowerSnapshot.IsSuspended = true
+ON suspend:
+    mark suspended
     increment SuspendCount
-    wake Supervisor
-    return immediately
+    wake supervision
 
-WHILE suspended:
-    create no new worker
-    wait for a lifecycle wake
-
-ON first resume event for this suspend:
-    set IsSuspended = false
+ON resume:
+    mark awake
     increment PowerRevision
-    wake Supervisor
+    wake supervision
 
 SUPERVISOR:
-    re-probe endpoint reality
-
-    IF current worker exists
-       AND worker.PowerRevision != current PowerRevision:
-        replace the entire worker generation
-
-    only a fresh current-revision generation may return to RUNNING
+    create no worker while suspended
+    after resume, re-probe endpoints
+    replace any worker created under an older PowerRevision
 ```
 <!--vf:end-->

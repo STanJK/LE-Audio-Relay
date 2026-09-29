@@ -7,16 +7,16 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "Process Loopback capture pushes 48 kHz stereo audio or silent packets into PcmRelayBoundary while the destination provider requests render buffers."
-problem "Capture and render callbacks require one elastic PCM boundary while the destination must continuously receive complete real-zero-backed buffers before activation and during missing runtime data."
-behavior "Use one SPSC ring, cap pre-activation accumulation, activate RELAY only after the current request plus target cushion is available, trim startup excess, read available runtime frames, and leave missing output as real zeros."
-exit "Every render callback returns a complete buffer while route telemetry separately records audio drops, silent drops, keepalive frames, zero-fill frames, and startup trim."
+entry "Process Loopback pushes 48 kHz stereo packets while the destination renderer requests output buffers on an independent callback clock."
+problem "The destination must always receive a complete buffer and remain hot, while capture/render phase mismatch still needs a small elasticity boundary."
+behavior "Use one SPSC ring and KEEPALIVE→ARMED→RELAY state: zero-fill every render buffer first, bound startup accumulation, enter RELAY only after current request plus 10 ms target cushion is available, then read available frames and leave any deficit as real zeros."
+exit "Render callbacks always return a full buffer; startup trim, audio/silent drops, zero-fill, keepalive, and intentional clock trims remain distinguishable telemetry."
 -->
 
 <!--vf:source
 id "boundary"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Timing/PcmRelayBoundary.cs"
 symbol "PcmRelayBoundary"
 -->
@@ -24,7 +24,7 @@ symbol "PcmRelayBoundary"
 <!--vf:source
 id "ring"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Timing/SpscPcmRing.cs"
 symbol "SpscPcmRing"
 -->
@@ -32,116 +32,93 @@ symbol "SpscPcmRing"
 <!--vf:source
 id "telemetry"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Telemetry/RouteTelemetry.cs"
 symbol "RouteTelemetry"
 -->
 
 <!--vf:claim
-id "activation-requires-request-plus-cushion"
+id "activation-needs-request-plus-cushion"
 type "fact"
-text "ARMED changes to RELAY only when ring fill reaches the current render request plus the configured target cushion."
+text "ARMED enters RELAY only when ring fill can satisfy the current render request plus the configured 10 ms target cushion; excess startup fill is discarded at activation."
 evidence "boundary"
 -->
 
 <!--vf:claim
-id "render-is-real-zero-backed"
+id "render-is-zero-backed"
 type "fact"
-text "PcmRelayBoundary clears every destination buffer before reading ring data, so keepalive and missing runtime frames remain real zero PCM."
+text "Every destination buffer is cleared before ring data is read, so KEEPALIVE and missing runtime frames remain real zero PCM while the destination render stream stays active."
 evidence "boundary"
 -->
 
 <!--vf:claim
-id "drop-semantics-are-separated"
+id "capacity-is-headroom-not-target"
 type "fact"
-text "Round4 telemetry records runtime dropped audio frames separately from runtime dropped silent frames and also separates startup drops."
+text "The physical ring capacity is 80 ms while the intended retained cushion is 10 ms; capacity is safety headroom rather than normal latency."
+evidence "boundary"
+evidence "ring"
+-->
+
+<!--vf:claim
+id "loss-and-correction-semantics-are-separated"
+type "fact"
+text "RouteTelemetry separates startup/runtime audio drops, silent drops, startup trim, zero-fill, and intentional silent/gradual/emergency clock correction."
 evidence "telemetry"
 -->
 
-**Why:** The route still needs one minimal elasticity boundary, but clock-control policy must remain separable from basic PCM transport. [explain →](./round4-shell.fact.md#pcm-why)
+**Why:** Keepalive and minimal scheduling elasticity are transport invariants; full clock control is a separate concern.
 
-**What:** The boundary preserves startup cushion and zero-keepalive behavior with one SPSC ring while exposing cleaner drop semantics than V0.1. [explain →](./round4-shell.fact.md#pcm-what)
+**What:** One SPSC boundary owns startup gating, retained cushion, zero-backed render, and drop accounting.
 
-**Outcome:** The current route can run with the validated V0.1 buffering behavior while later drift/recenter logic can be added as a distinct Timing control layer. [explain →](./round4-shell.fact.md#pcm-outcome)
+**Outcome:** The destination stays continuously rendered without treating the full 80 ms capacity as normal queue latency.
 
 ```mermaid
 flowchart TD
-    %% vf:flow id="pcm-boundary"
+    packet(["Capture packet"])
+    write["Write audio/silence into bounded ring"]
+    render(["Render request: clear buffer to zeros"])
+    ready{"ARMED and request + cushion available?"}
+    activate["Trim startup excess; enter RELAY"]
 
-    %% vf:element kind="input"
-    packet(["Captured PCM or silence packet"])
-
-    %% vf:element kind="decision"
-    %% vf:guard expr="RelayActive" source="boundary"
-    relay{"RELAY active?"}
-
-    %% vf:element kind="action"
-    %% vf:op call target="_ring.Write" args="buffer,maxFillFrames" source="boundary"
-    write["Write packet into bounded ring"]
-
-    %% vf:element kind="decision"
-    %% vf:guard expr="observedFill >= requiredFill" source="boundary"
-    ready{"Request + cushion available?"}
-
-    %% vf:element kind="action"
-    %% vf:op call target="_ring.Discard" args="excess" source="boundary"
-    activate["Trim startup excess and enter RELAY"]
-
-    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary.provisional-positive-drift-guard"
     guard[["Apply provisional positive-drift guard"]]
 
-    %% vf:element kind="action"
-    %% vf:op call target="_ring.Read" args="buffer,requestedFrames" source="boundary"
-    read["Read available runtime frames"]
+    read["Read available ring frames"]
+    output(["Return full zero-backed buffer"])
 
-    %% vf:element kind="output"
-    render(["Complete real-zero-backed render buffer"])
-
-    packet --> relay
-    relay --> write
-    write --> ready
-
-    %% vf:branch when="observedFill >= requiredFill"
-    ready -->|"yes"| activate
-
-    %% vf:branch when="observedFill < requiredFill"
-    ready -->|"no"| render
-
-    activate --> guard
-    guard --> read
-    read --> render
+    packet --> write
+    render --> ready
+    ready -->|"yes"| activate --> read
+    ready -->|"no / already relay"| read
+    read --> guard --> output
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary
 flow pcm-boundary
 audience human
-purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
+purpose "Callback-order and buffer invariant projection."
 -->
 ```text
 ON capture packet:
-    classify packet as audio or silent
-    choose startup or runtime fill limit
-    write packet frames into the SPSC ring
-    record written and dropped frames with audio/silence identity preserved
+    preserve audio-vs-silent identity
+    before RELAY: cap fill at startup hold
+    during RELAY: cap fill at physical capacity
+    prefer silent excess suppression through drift child
+    record writes and real drops separately
 
-ON destination render request:
-    clear the entire output buffer to real zeros
+ON render request:
+    clear full output buffer to zero
 
-    IF mode is ARMED:
-        required = current request + target cushion
+    IF ARMED and fill >= request + target cushion:
+        discard startup excess
+        enter RELAY
 
-        IF ring fill >= required:
-            discard excess above required
-            enter RELAY
+    IF RELAY:
+        read available frames
+        apply post-render drift child
 
-    IF mode is RELAY:
-        read available frames from ring
-        leave any missing frames as zeros
-    ELSE:
-        return zero keepalive
-
-    record render/zero-fill/keepalive telemetry
+    leave any missing bytes as zeros
+    return full requested byte count
 ```
 <!--vf:end-->

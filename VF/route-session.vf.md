@@ -7,24 +7,32 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "A backend worker with an immutable route-generation configuration calls RouteSession.StartAsync."
-problem "One worker generation must construct and own the complete Process Loopback to Buds audio path while keeping route-local failures observable and disposable."
-behavior "Resolve and validate the destination, construct the PCM boundary, create destination render and Process Loopback capture, start destination rendering first, arm the boundary, start capture, and signal unexpected source/render termination as route failure."
-exit "A running route remains owned by the worker until shutdown or route failure, after which its capture, render, endpoint, and resolver resources are disposed in order."
+entry "A backend worker calls RouteSession.StartAsync with one immutable route-generation configuration."
+problem "One worker must own the complete Process Loopback-to-LE-render path while target resolution, format policy, startup ordering, and route failure remain explicit."
+behavior "Resolve exactly one active destination by the current name match, validate 48 kHz Float32 stereo and default-output safety, construct the PCM boundary, create persistent destination render plus process-scoped loopback capture, start render first, then arm and start capture."
+exit "A running route stays worker-owned until shutdown or one normalized route-failure signal completes it."
 -->
 
 <!--vf:source
 id "route"
 repo "STanJK/LE-Audio-Relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Routing/RouteSession.cs"
 symbol "RouteSession"
 -->
 
 <!--vf:source
+id "resolver"
+repo "STanJK/LE-Audio-Relay"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
+path "Routing/AudioEndpointResolver.cs"
+symbol "AudioEndpointResolver"
+-->
+
+<!--vf:source
 id "capture"
 repo "STanJK/LE-Audio-Relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Routing/ProcessLoopbackSource.cs"
 symbol "ProcessLoopbackSource"
 -->
@@ -32,7 +40,7 @@ symbol "ProcessLoopbackSource"
 <!--vf:source
 id "render"
 repo "STanJK/LE-Audio-Relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Routing/PersistentRenderSink.cs"
 symbol "PersistentRenderSink"
 -->
@@ -40,7 +48,7 @@ symbol "PersistentRenderSink"
 <!--vf:source
 id "format"
 repo "STanJK/LE-Audio-Relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Routing/AudioFormatPolicy.cs"
 symbol "AudioFormatPolicy"
 -->
@@ -48,124 +56,100 @@ symbol "AudioFormatPolicy"
 <!--vf:source
 id "category"
 repo "STanJK/LE-Audio-Relay"
-rev "16b9ed8ccfc8f369170f84d191ffbcfb4de69b58"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Routing/RenderCategoryPolicy.cs"
 symbol "RenderCategoryPolicy"
 -->
 
 <!--vf:claim
-id "capture-excludes-worker-tree"
+id "destination-is-currently-name-resolved"
 type "fact"
-text "The Round4 Process Loopback source captures in ExcludeTargetProcessTree mode for the current worker process."
+text "Route startup requires exactly one Active render endpoint whose FriendlyName contains the configured DestinationMatch; the current Daily 2 default is Galaxy Buds3 Pro."
+evidence "resolver"
+evidence "route"
+-->
+
+<!--vf:claim
+id "default-output-is-policy-checked-not-capture-bound"
+type "fact"
+text "Route startup rejects a default multimedia endpoint whose name points to the destination/Galaxy Buds3 Pro or CABLE Input, but Process Loopback itself is process-scoped and is not bound to that sacrificial/default endpoint."
+evidence "route"
 evidence "capture"
 -->
 
 <!--vf:claim
-id "destination-starts-first"
+id "destination-starts-before-capture"
 type "fact"
-text "RouteSession starts the persistent destination render, waits the activation interval, arms the PCM boundary, and only then starts Process Loopback capture."
+text "RouteSession starts persistent destination rendering, waits approximately 250 ms, arms the PCM boundary, and only then starts Process Loopback capture."
 evidence "route"
 -->
 
 <!--vf:claim
-id "route-format-is-48k-float-stereo"
+id "route-format-is-strict"
 type "fact"
-text "The route validates the destination MixFormat as 48 kHz Float32 stereo and creates the relay format with the same rate and channel count."
+text "The destination MixFormat must be 48 kHz Float32 stereo; the render category is selected from GameEffects, GameMedia, Media, or unset according to RelayMode."
 evidence "format"
-evidence "route"
+evidence "category"
 -->
 
 <!--vf:claim
-id "unexpected-audio-stop-becomes-route-failure"
+id "unexpected-audio-stop-is-one-route-failure"
 type "fact"
-text "Unexpected render PlaybackStopped, capture RecordingStopped, or capture packet handling exceptions complete the RouteSession failure signal."
+text "Unexpected render stop, capture stop, or capture packet handling failure completes the RouteSession failure signal consumed by the worker."
 evidence "route"
 evidence "capture"
 evidence "render"
 -->
 
-**Why:** The worker needs one explicit owner for the whole audio generation so route-local resources and failures can be discarded together. [explain →](./round4-shell.fact.md#route-why)
+**Why:** The worker needs one owner for all audio objects so a generation can be replaced coherently.
 
-**What:** RouteSession builds the validated destination-first Process Loopback route, owns its capture/render/buffer resources, and converts unexpected audio stops into one route failure signal. [explain →](./round4-shell.fact.md#route-what)
+**What:** Resolve policy, build one persistent render + process loopback route, and normalize route-local failure.
 
-**Outcome:** A successful RouteSession provides the worker's real RUNNING state; any later route failure causes that worker generation to be replaced by supervision. [explain →](./round4-shell.fact.md#route-outcome)
+**Outcome:** Worker RUNNING means the real audio path has started, not merely that a child process exists.
 
 ```mermaid
 flowchart TD
-    %% vf:flow id="route-startup"
-
-    %% vf:element kind="input"
     config(["Immutable route configuration"])
+    resolve["Resolve exactly one active destination"]
+    validate["Validate format + current default-output policy"]
 
-    %% vf:element kind="action"
-    %% vf:op call target="resolver.FindUniqueActiveRender" args="configuration.DestinationMatch" source="route"
-    resolve["Resolve one active Buds destination"]
-
-    %% vf:element kind="action"
-    %% vf:op call target="AudioFormatPolicy.ValidateDestination" args="destination" source="format"
-    validate["Validate endpoint and route format"]
-
-    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary"
     boundary[["Create PCM relay boundary"]]
 
-    %% vf:element kind="action"
-    %% vf:op call target="session._render.Start" source="route"
-    render_start["Start persistent destination render"]
-
-    %% vf:element kind="action"
-    %% vf:op call target="session._capture.Start" source="route"
-    capture_start["Arm boundary and start Process Loopback"]
-
-    %% vf:element kind="output"
+    render["Start persistent destination render"]
+    hold["Wait activation interval"]
+    capture["Arm boundary + start Process Loopback"]
     running(["Route RUNNING"])
 
-    config --> resolve
-    resolve --> validate
-    validate --> boundary
-    boundary --> render_start
-    render_start --> capture_start
-    capture_start --> running
+    config --> resolve --> validate --> boundary --> render --> hold --> capture --> running
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation.route-session
 flow route-startup
 audience human
-purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
+purpose "Worker-local route construction and ownership projection."
 -->
 ```text
-START RouteSession(configuration):
-    resolve exactly one active render endpoint matching the destination
-    require destination MixFormat = 48 kHz / Float32 / stereo
-    reject Buds or CABLE Input as the Windows default render sink
+resolve exactly one active target matching DestinationMatch
+validate target MixFormat = 48 kHz / Float32 / stereo
+validate current default multimedia endpoint against the temporary safety heuristic
 
-    create worker-local route telemetry
-    create the basic PCM relay boundary
-    create the persistent destination renderer
-    create Process Loopback capture excluding this worker process tree
+create telemetry + PCM boundary
+create persistent destination render with selected stream category
+create Process Loopback capture excluding this worker process tree
 
-    subscribe route-local failure signals
+start destination render
+wait ~250 ms
+arm boundary
+start capture
+return RUNNING RouteSession
 
-    start destination rendering first
-    wait for the destination activation interval
-    arm the PCM boundary
-    start Process Loopback capture
-
-    return RUNNING RouteSession
-
-WHILE running:
-    IF render stops unexpectedly:
-        signal route failure
-
-    IF capture stops unexpectedly:
-        signal route failure
-
-    IF capture packet handling fails:
-        signal route failure
+ON unexpected render/capture/callback failure:
+    signal one RouteFailure
 
 ON dispose:
-    return boundary to keepalive
+    disable boundary
     stop capture
     stop render
     dispose route-owned resources

@@ -7,16 +7,16 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "The Tray/Supervisor observes a low-frequency lifecycle transition."
-problem "Long daily runs need durable evidence of power, endpoint, worker, and user-control transitions without turning high-frequency audio diagnostics into log spam."
-behavior "Append one sanitized timestamped line to a daily file under LocalApplicationData for application, power, endpoint, worker-generation, mode, and manual-restart transitions only."
-exit "Lifecycle history survives process restarts while heartbeat, ring warnings, drift warnings, and per-second telemetry remain absent from persistent logs."
+entry "A low-frequency application, power, endpoint, worker, mode, or restart transition occurs."
+problem "Multi-day validation needs durable lifecycle evidence without heartbeat/ring telemetry becoming persistent log noise."
+behavior "Append one sanitized best-effort UTF-8 line to a daily LocalApplicationData journal only for lifecycle transitions."
+exit "Lifecycle history survives process restarts while high-frequency route telemetry remains worker-local and ephemeral."
 -->
 
 <!--vf:source
 id "logger"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Telemetry/LifecycleEventLog.cs"
 symbol "LifecycleEventLog"
 -->
@@ -24,7 +24,7 @@ symbol "LifecycleEventLog"
 <!--vf:source
 id "supervisor"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
 -->
@@ -32,32 +32,32 @@ symbol "BackendSupervisor"
 <!--vf:source
 id "shell"
 repo "STanJK/LE-Audio-Relay"
-rev "e7965f4b1fc34dcbf28d1f3e86406ef4b58e2df2"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Shell/TrayApplicationContext.cs"
 symbol "TrayApplicationContext"
 -->
 
 <!--vf:claim
-id "journal-is-lifecycle-only"
+id "journal-is-best-effort"
 type "fact"
-text "The persistent journal is written only from application/supervision lifecycle transitions and is not called from the worker heartbeat or PCM warning path."
+text "LifecycleEventLog catches its own I/O failures, so persistent logging cannot block product routing or recovery."
+evidence "logger"
+-->
+
+<!--vf:claim
+id "journal-excludes-high-frequency-telemetry"
+type "fact"
+text "The persistent journal is written from shell/supervision lifecycle transitions and does not persist heartbeat, ring occupancy, overflow warnings, drift warnings, or per-second route telemetry."
 evidence "logger"
 evidence "supervisor"
 evidence "shell"
 -->
 
-<!--vf:claim
-id "journal-is-daily-localappdata"
-type "fact"
-text "LifecycleEventLog appends daily UTF-8 files under LocalApplicationData/LEAudioRelay/logs and catches its own I/O failures so logging cannot break routing."
-evidence "logger"
--->
+**Why:** The journal exists for reconstruction after long daily runs, not for real-time audio diagnostics.
 
-**Why:** Long-run validation requires historical lifecycle evidence, but noisy ring/heartbeat logs would obscure the events needed to correlate regressions. [explain →](./round4-shell.fact.md#journal-why)
+**What:** Persist only coarse lifecycle transitions under `%LOCALAPPDATA%/LEAudioRelay/logs`.
 
-**What:** A best-effort daily local journal records only low-frequency application, power, endpoint, worker, mode, and restart transitions. [explain →](./round4-shell.fact.md#journal-what)
-
-**Outcome:** Multi-day dogfooding can be reconstructed without accumulating warning spam or making logging part of the audio critical path. [explain →](./round4-shell.fact.md#journal-outcome)
+**Outcome:** Failures can be correlated with reconnect, power, worker, and user actions without making logging part of the audio critical path.
 
 ```text
 APP_START / APP_EXIT
@@ -65,13 +65,5 @@ POWER_SUSPEND / POWER_RESUME
 ENDPOINT_AVAILABLE / ENDPOINT_ABSENT / ENDPOINT_AMBIGUOUS
 TOPOLOGY_BLOCKED
 WORKER_RUNNING / WORKER_STOP / WORKER_EXIT / WORKER_REPLACE
-MODE_CHANGE
-MANUAL_RESTART
-
-NOT PERSISTED:
-heartbeat
-ring warnings
-overflow warnings
-clock-trim warnings
-per-second telemetry
+MODE_CHANGE / MANUAL_RESTART
 ```

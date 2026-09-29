@@ -7,16 +7,16 @@ coverage "mapped"
 -->
 
 <!--vf:summary
-entry "After endpoint lifecycle reconciliation reports eligible topology, BackendSupervisor starts or reconciles one worker generation using the current immutable route-generation configuration snapshot."
-problem "Route-local audio state must be replaceable as one process-local unit without terminating the tray product lifetime."
-behavior "Only on eligible topology, spawn one backend-worker process, validate HELLO, require the real audio route to reach RUNNING, monitor heartbeat/status, and replace stale or failed generations. Physical endpoint absence is handled by the sibling endpoint-lifecycle behavior rather than worker retry."
-exit "A healthy route worker remains current, or the failed/stale generation is disposed and supervision proceeds toward a fresh generation."
+entry "Endpoint and power reconciliation report eligible reality and BackendSupervisor evaluates the desired immutable route-generation snapshot."
+problem "All route-local audio state must be replaceable as one process-local unit while the tray lifetime stays alive."
+behavior "Spawn at most one backend-worker generation, require HELLO and real route RUNNING, monitor typed status/heartbeat/process completion, and replace a generation when configuration, restart revision, power revision, or health evidence makes it stale."
+exit "One healthy current generation remains, or the old generation is boundedly stopped and supervision proceeds toward another eligible generation."
 -->
 
 <!--vf:source
 id "supervisor"
 repo "STanJK/LE-Audio-Relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Supervision/BackendSupervisor.cs"
 symbol "BackendSupervisor"
 -->
@@ -24,7 +24,7 @@ symbol "BackendSupervisor"
 <!--vf:source
 id "worker"
 repo "STanJK/LE-Audio-Relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Host/BackendWorker.cs"
 symbol "BackendWorker"
 -->
@@ -32,15 +32,15 @@ symbol "BackendWorker"
 <!--vf:source
 id "protocol"
 repo "STanJK/LE-Audio-Relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Supervision/WorkerProtocol.cs"
 symbol "WorkerProtocol"
 -->
 
 <!--vf:source
-id "generation-config"
+id "config"
 repo "STanJK/LE-Audio-Relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "Settings/RouteGenerationConfiguration.cs"
 symbol "RouteGenerationConfiguration"
 -->
@@ -48,137 +48,95 @@ symbol "RouteGenerationConfiguration"
 <!--vf:source
 id "adr"
 repo "STanJK/LE-Audio-Relay"
-rev "ad97006de6e95db08c2873a11aa2ee97ef5ad532"
+rev "da3217f76a0632bdaf6fea25e9103dbef0298137"
 path "docs/decisions/0001-out-of-process-route-generation.md"
 -->
 
 <!--vf:claim
 id "one-worker-is-one-generation"
 type "fact"
-text "BackendSupervisor assigns a monotonically increasing generation number and spawns one --backend-worker process for that generation."
+text "BackendSupervisor assigns a monotonically increasing generation number and spawns the same executable in --backend-worker mode for at most one current route generation."
 evidence "supervisor"
 -->
 
 <!--vf:claim
-id "running-requires-real-route-start"
+id "running-is-gated-by-real-route-start"
 type "fact"
-text "The supervisor does not publish Running until the worker sends RUNNING, and the worker sends RUNNING only after RouteSession.StartAsync succeeds."
+text "The supervisor publishes Running only after the worker sends RUNNING, and the worker sends RUNNING only after RouteSession.StartAsync succeeds."
 evidence "supervisor"
 evidence "worker"
 -->
 
 <!--vf:claim
-id "worker-health-is-observed-by-heartbeat"
+id "health-evidence-completes-generation"
 type "fact"
-text "The supervisor treats worker heartbeat timeout, control-pipe closure, reported fault, or process exit as completion/failure evidence for the current generation."
+text "Process exit, control-pipe closure, worker FAULTED/STOPPED messages, or heartbeat timeout complete the current generation monitor."
 evidence "supervisor"
 evidence "protocol"
 -->
 
 <!--vf:claim
-id "process-boundary-is-diagnostic"
+id "staleness-is-revisioned"
 type "fact"
-text "ADR 0001 defines the worker process as a user-mode fault and diagnostic boundary rather than an audio-domain or kernel-fault boundary."
-evidence "adr"
+text "A current generation is replaced when its power revision, restart revision, or immutable route configuration no longer matches the desired snapshot."
+evidence "supervisor"
 -->
 
-**Why:** The worker boundary provides a complete disposable unit for route-local state and a diagnostic distinction between process-local failures and faults that survive a fresh PID. [explain →](./round4-shell.fact.md#worker-why)
+**Why:** The worker is a disposable user-mode fault/diagnostic boundary, not a second product or an audio microservice topology.
 
-**What:** The supervisor creates one worker generation, validates its control handshake, waits for the contained audio route to become RUNNING, then monitors the worker until replacement is required. [explain →](./round4-shell.fact.md#worker-what)
+**What:** Start one real route generation, prove it reached RUNNING, monitor it, and replace it when stale or failed.
 
-**Outcome:** The tray process survives worker replacement while each new route generation receives a fresh worker process, immutable configuration snapshot, and freshly constructed audio route. [explain →](./round4-shell.fact.md#worker-outcome)
+**Outcome:** The tray survives route replacement and each generation receives fresh process-local threads, handles, COM/WASAPI objects, and managed state.
 
 ```mermaid
 flowchart TD
-    %% vf:flow id="worker-generation"
+    reconcile(["Eligible supervisor reconciliation"])
+    stale{"Generation absent / stale / completed?"}
+    spawn["Allocate generation + spawn worker"]
+    hello["Require HELLO"]
 
-    %% vf:element kind="input"
-    reconcile(["Supervisor reconciliation"])
-
-    %% vf:element kind="decision"
-    %% vf:guard expr="active == null" source="supervisor"
-    absent{"Worker generation absent?"}
-
-    %% vf:element kind="action"
-    %% vf:op call target="StartWorkerProcess" args="pipeName,generation,configuration" source="supervisor"
-    spawn["Spawn worker and validate HELLO"]
-
-    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session"
-    route[["Start real audio route"]]
+    route[["Start real RouteSession"]]
 
-    %% vf:element kind="decision"
-    %% vf:guard expr="active.Completion.IsCompleted" source="supervisor"
-    completed{"Worker generation completed?"}
+    monitor["Monitor heartbeat / pipe / process / revisions"]
 
-    %% vf:element kind="action"
-    %% vf:op call target="StopGenerationAsync" args="active,cancellationToken" source="supervisor"
-    replace["Dispose stale or failed generation"]
+    %% vf:expand node="leaudio-router.round4-shell.worker-generation.worker-control-liveness"
+    stop[["Bounded stop / forced kill"]]
 
-    %% vf:element kind="output"
-    healthy(["Current RUNNING generation retained"])
+    running(["Current RUNNING generation"])
 
-    reconcile --> absent
-
-    %% vf:branch when="active == null"
-    absent -->|"yes"| spawn
-
-    %% vf:branch when="active != null"
-    absent -->|"no"| completed
-
-    spawn --> route
-    route --> healthy
-
-    %% vf:branch when="active.Completion.IsCompleted"
-    completed -->|"yes"| replace
-
-    %% vf:branch when="!active.Completion.IsCompleted"
-    completed -->|"no"| healthy
-
-    replace --> reconcile
+    reconcile --> stale
+    stale -->|"no"| running
+    stale -->|"yes, old exists"| stop
+    stop --> spawn
+    stale -->|"yes, none"| spawn
+    spawn --> hello --> route --> monitor --> running
+    running --> monitor
+    monitor -->|"stale / completed"| stop
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation
 flow worker-generation
 audience human
-purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
+purpose "Generation ownership and replacement projection; shutdown liveness is delegated to its child node."
 -->
 ```text
-SUPERVISOR LOOP:
-    snapshot current route configuration and restart revision
+IF topology is eligible:
+    snapshot route configuration + restart revision + power revision
 
-    IF current generation completed or failed:
-        dispose it
-        clear current generation
-        return failure to endpoint-aware reconciliation
-        retry only if current topology is still eligible
-
-    IF current generation uses stale configuration
-       OR predates a manual restart request:
-        stop and dispose it
+    IF current generation is stale or completed:
+        stop it through bounded worker-control-liveness
         clear current generation
 
-    IF no current generation exists:
-        allocate next generation number
+    IF no generation exists:
+        allocate generation N
         create private named pipe
-        spawn this executable in --backend-worker mode
+        spawn --backend-worker
         require HELLO
-        require the worker's real RouteSession to reach RUNNING
-        start heartbeat/status monitoring
-        publish RUNNING
+        require contained RouteSession to reach RUNNING
+        start generation monitor
 
-WORKER:
-    connect to parent
-    send HELLO
-    start RouteSession
-
-    IF RouteSession starts:
-        send RUNNING
-        send periodic HEARTBEAT messages
-
-    IF RouteSession fails:
-        send FAULTED
-        exit this generation
+    retain the generation until health or revision evidence invalidates it
 ```
 <!--vf:end-->

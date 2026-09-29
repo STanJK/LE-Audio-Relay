@@ -1,122 +1,41 @@
-# Round4 Shell and Worker Architecture — Fact Page
+# LE Audio Relay Current VF-KB — Cross-layer Rationale
 
-This page is the human explanation layer for the current Round4 VF-KB nodes. Canonical machine semantics remain in the sibling `.vf.md` files.
+Canonical implementation snapshot for this page: `da3217f76a0632bdaf6fea25e9103dbef0298137`.
 
-## Root module
+The individual `.vf.md` nodes are the canonical machine-readable semantics. This page intentionally contains only cross-layer reasoning that would otherwise be repeated across several nodes.
 
-### root-why
+## Two lifetimes, not one
 
-V0.1 coupled application lifetime directly to one audio-route lifetime. Round4 introduces a durable Windows tray/supervisor lifetime so route generations may be destroyed and recreated without requiring the user to restart the product manually. The user-facing model is deliberately smaller than the internal lifecycle model: opening the application already expresses the intent to route audio, so separate Enabled and Auto reconnect controls were removed rather than preserved as redundant configuration.
+V0.1 made product lifetime and route lifetime effectively the same thing. Round4 separates them: the tray/supervisor is durable, while one worker PID represents one disposable route generation. That lets endpoint loss, resume, manual restart, or route failure replace process-local audio state without restarting the product.
 
-### root-what
+The worker boundary is diagnostic and user-mode fault containment only. It cannot isolate kernel crashes or state that lives below the process boundary.
 
-The normal executable entry starts a WinForms tray application. The tray exposes render-category selection, manual route restart, and Exit. The supervisor runs behind that UI and owns replacement of the current backend generation. Recovery policy is automatic. The tray does not own WASAPI clients, capture callbacks, ring state, or route-local timing behavior.
+## Observers report facts; supervision owns policy
 
-### root-outcome
+Core Audio and WM_POWERBROADCAST callbacks are deliberately tiny. They wake supervision or update a fact snapshot and return. They do not enumerate topology, tear down WASAPI objects, or spawn workers.
 
-The tray remains the durable product lifetime. While it is alive, supervision attempts to maintain one current route generation. Exiting the application is the canonical way to stop routing and terminate supervision.
+This keeps event-thread behavior deterministic and gives the supervisor one place to reconcile endpoint reality, power epoch, configuration, and generation health.
 
-## Worker generation
+## Worker liveness is an architectural invariant
 
-### worker-why
+A disposable worker is only useful if the supervisor can abandon it without cooperation. Shutdown IPC is therefore bounded, graceful completion is bounded, and forced process-tree termination is authoritative. The control pipe is broken before wrapper cleanup so dead worker I/O cannot pin reconciliation.
 
-The project intentionally retains one child-process boundary even though ordinary WASAPI invalidation can be handled in-process. The reason is not that a child process can protect against kernel or hardware crashes; it cannot. The boundary is useful because it guarantees replacement of process-local managed state, worker threads, handles, COM/WASAPI objects, and interop state. It also creates a debugging experiment: faults cleared by a fresh worker PID implicate process-local state more strongly, while faults that survive replacement point below that boundary.
+This rule was made explicit after daily testing exposed a failure mode where abrupt earbud removal could leave the UI alive while the supervisor was blocked trying to stop the old worker.
 
-### worker-what
+## Process Loopback and the sacrificial/default endpoint are separate concepts
 
-The supervisor assigns a generation number, creates a private named pipe, and spawns the same executable in `--backend-worker` mode with an immutable configuration snapshot. The worker connects, sends a typed HELLO/RUNNING sequence, then emits heartbeat messages. The supervisor replaces the generation after explicit restart intent, configuration drift, worker completion, pipe failure, or heartbeat timeout.
+Ordinary applications still need a Windows default render destination that is not the LE Audio target. Process Loopback, however, is process-scoped and is not capturing from that endpoint. The current default-output check is a temporary safety heuristic around the Daily 2 name-based configuration, not a general physical-endpoint classifier.
 
-The process split occurs exactly once. Capture, render, timing, telemetry, and route coordination are expected to remain inside the worker rather than becoming their own processes.
+## Timing is intentionally layered
 
-### worker-outcome
+`PcmRelayBoundary` owns transport invariants: zero-backed rendering, KEEPALIVE/ARMED/RELAY startup, the 10 ms retained cushion, and explicit drop semantics.
 
-A healthy generation stays current. A stale or failed generation is stopped and disposed, and the supervisor automatically proceeds toward a fresh generation while the tray product lifetime remains alive. The process boundary remains intentionally replaceable as an architectural choice if later operational evidence shows its cost exceeds its recovery/debug value.
+`ProvisionalPositiveDriftGuard` is a child policy that only mitigates positive fill drift. Keeping it separate prevents a temporary 11/12/20 ms heuristic from becoming confused with future PLL/ASRC or bidirectional clock synchronization.
 
+## Historical identity
 
-## Route session
+Current product/source identity is LE Audio Relay, but existing VF node IDs keep the `leaudio-router.*` prefix. Those IDs are stable historical knowledge identifiers and are not renamed merely to follow branding.
 
-### route-why
+## Historical evidence stays frozen
 
-The route session is the worker-local ownership boundary for all audio objects. This prevents the supervisor and tray from accumulating WASAPI-specific state and makes one worker generation disposable as a coherent unit.
-
-### route-what
-
-RouteSession resolves one active destination, enforces the 48 kHz Float32 stereo policy, verifies that the Windows default render endpoint remains a sacrificial sink, constructs the Process Loopback source and persistent destination renderer, and starts the destination before capture. Unexpected PlaybackStopped, RecordingStopped, and capture callback failures are normalized into one RouteFailure signal.
-
-### route-outcome
-
-The worker reports RUNNING only after RouteSession startup has succeeded. Once running, a route-local failure causes the worker to report FAULTED and exit; the tray/supervisor then replaces the whole generation. This keeps audio recovery below the user-facing shell but above the Windows/driver boundary.
-
-## PCM relay boundary
-
-### pcm-why
-
-The first real Round4 route still requires elasticity between Process Loopback production and Buds rendering. Clock synchronization is deliberately deferred, so the initial Timing layer contains only the already validated buffering mechanics rather than adding drift-control policy during the lifecycle rewrite.
-
-### pcm-what
-
-PcmRelayBoundary owns one SPSC ring and the KEEPALIVE → ARMED → RELAY startup state. Before RELAY it caps accumulation; activation requires the current render request plus the target cushion and trims excess. Every output buffer is cleared first, preserving real-zero keepalive and zero-fill behavior. RouteTelemetry now distinguishes audible/audio frame drops from silent-frame drops and also separates startup from runtime loss.
-
-### pcm-outcome
-
-The worker can run the real V0.1-equivalent PCM path with cleaner observability while later Timing work can add active recentering or clock control without changing Routing ownership.
-
-
-## Endpoint lifecycle reconciliation
-
-### lifecycle-why
-
-The first real Round4 route proved that blindly retrying worker creation can recover from disconnects, but it also showed that endpoint absence and route failure are different states. A physically/logically absent Buds endpoint provides no useful reason to create another process or initialize WASAPI again. Treating absence as a fault produced unnecessary PID churn and obscured the actual system state.
-
-### lifecycle-what
-
-AudioEndpointObserver subscribes to NAudio 3.0.1 Core Audio device-added, device-removed, device-state-changed, and default-device-changed events with synchronization-context marshalling disabled. Because those callbacks execute on the Windows audio worker thread, the handler only coalesces a supervisor wake signal and returns. It never enumerates devices or touches route objects.
-
-After waking, AudioEndpointProbe re-enumerates active render endpoints and the default multimedia render endpoint. The enumeration result is authoritative; notification order and endpoint IDs are not used as a state machine. The supervisor then classifies the world as WaitingForEndpoint, TopologyBlocked, or route-eligible.
-
-### lifecycle-outcome
-
-When Buds are absent, there is no worker process and no repeated route-start attempt. When Windows reports a topology change, the supervisor immediately re-probes and starts a fresh generation only after the endpoint becomes active again. A 30-second safety probe protects against missed notifications without creating workers while absence persists. Bounded retry remains available only for genuine worker/route failure while topology still appears eligible.
-
-
-## Power lifecycle
-
-### power-why
-
-Windows suspend/resume invalidates assumptions below the route-generation boundary. Rather than teaching each WASAPI object to survive sleep, Round4 treats a power epoch change as evidence that the entire pre-resume generation is stale.
-
-### power-what
-
-PowerObserver receives WM_POWERBROADCAST in the Tray process and only updates PowerSnapshot plus a wake signal. PowerRevision increases on resume. Each WorkerGeneration records the revision under which it was created. The supervisor creates no new worker while suspended and replaces any pre-resume generation after wake before trusting audio again.
-
-### power-outcome
-
-A route that reaches RUNNING after resume is freshly constructed for the current Windows power epoch. Endpoint absence after wake naturally falls into WaitingForEndpoint and route-start failures naturally reuse bounded recovery.
-
-## Provisional positive-drift guard
-
-### drift-why
-
-The current capture/render clocks can accumulate positive ring drift during multi-hour daily use. Full synchronization is deliberately deferred, but permanent ring saturation is not acceptable for the daily-use validation baseline.
-
-### drift-what
-
-ProvisionalPositiveDriftGuard regulates the **post-render residual** queue around the 10 ms target cushion. Source-declared silence removes already-accumulated excess first. Under uninterrupted audio, gradual correction starts at 12 ms residual and slips one complete stereo frame every eight render callbacks until residual returns to 11 ms. If residual reaches 20 ms, the guard hard-recenters to the 10 ms target. The physical 80 ms ring capacity remains safety headroom rather than a normal latency target. Intentional correction frames have dedicated telemetry and are excluded from real runtime-drop accounting.
-
-### drift-outcome
-
-The current branch can run for long periods without intentionally allowing the ring to remain pinned at capacity, while the future formal Timing controller still has a clean module boundary to replace this provisional behavior.
-
-## Lifecycle journal
-
-### journal-why
-
-Daily dogfooding needs enough persistent evidence to correlate failures with reconnects, sleep/wake, worker replacement, and mode changes. High-frequency warning output would make that evidence harder to use.
-
-### journal-what
-
-LifecycleEventLog writes best-effort daily UTF-8 files under LocalApplicationData/LEAudioRelay/logs. Only low-frequency lifecycle transitions are persisted. Heartbeat, ring occupancy, overflow warnings, clock-trim warnings, and per-second telemetry are intentionally excluded.
-
-### journal-outcome
-
-After days or weeks of use, route lifecycle history can be reconstructed without log spam and without placing persistent I/O on audio callback paths.
+`Legacy/V0.1/VF/` remains a sealed projection of the old implementation and old source revisions. Later knowledge may explain why V0.1 behaved as it did, but that understanding must not rewrite what the V0.1 nodes claimed about their own implementation snapshot.
