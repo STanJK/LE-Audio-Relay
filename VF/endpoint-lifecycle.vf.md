@@ -74,11 +74,11 @@ text "When the fresh snapshot reports the target Absent, supervision stops any c
 evidence "supervisor"
 -->
 
-**Why:** An endpoint notification means only that something changed; it does not say what stable topology now exists.
+**Why:** An endpoint notification means only that something changed; it does not say what stable topology now exists. [explain →](./round4-shell.fact.md#observers-report-facts-supervision-owns-policy)
 
-**What:** Wake cheaply, enumerate truth, then let supervision reconcile worker existence.
+**What:** Wake cheaply, enumerate truth, then let supervision reconcile worker existence. [explain →](./round4-shell.fact.md#observers-report-facts-supervision-owns-policy)
 
-**Outcome:** Disconnect is quiet, reconnect is event-driven, and route-fault backoff is reserved for failures while topology remains eligible.
+**Outcome:** Disconnect is quiet, reconnect is event-driven, and route-fault backoff is reserved for failures while topology remains eligible. [explain →](./round4-shell.fact.md#observers-report-facts-supervision-owns-policy)
 
 ```mermaid
 flowchart TD
