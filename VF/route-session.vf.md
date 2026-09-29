@@ -109,26 +109,47 @@ evidence "render"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="route-startup"
+
+    %% vf:element kind="input"
     config(["Immutable route configuration"])
+
+    %% vf:element kind="action"
     resolve["Resolve exactly one active destination"]
+
+    %% vf:element kind="action"
     validate["Validate format + current default-output policy"]
 
+    %% vf:element kind="child"
     %% vf:expand node="leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary"
     boundary[["Create PCM relay boundary"]]
 
+    %% vf:element kind="action"
     render["Start persistent destination render"]
+
+    %% vf:element kind="action"
     hold["Wait activation interval"]
+
+    %% vf:element kind="action"
     capture["Arm boundary + start Process Loopback"]
+
+    %% vf:element kind="output"
     running(["Route RUNNING"])
 
-    config --> resolve --> validate --> boundary --> render --> hold --> capture --> running
+    config --> resolve
+    resolve --> validate
+    validate --> boundary
+    boundary --> render
+    render --> hold
+    hold --> capture
+    capture --> running
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation.route-session
 flow route-startup
 audience human
-purpose "Worker-local route construction and ownership projection."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 resolve exactly one active target matching DestinationMatch
