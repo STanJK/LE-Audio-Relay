@@ -81,34 +81,58 @@ evidence "guard"
 
 ```mermaid
 flowchart TD
+    %% vf:flow id="positive-drift-guard"
+
+    %% vf:element kind="input"
     fill(["Observe fill / packet state"])
+
+    %% vf:element kind="decision"
     silent{"Silent packet and fill > 10 ms?"}
+
+    %% vf:element kind="action"
     suppress["Suppress silent excess toward 10 ms"]
+
+    %% vf:element kind="action"
     render["After render read: observe residual"]
+
+    %% vf:element kind="decision"
     hard{"Residual >= 20 ms?"}
+
+    %% vf:element kind="action"
     recenter["Discard excess to 10 ms"]
+
+    %% vf:element kind="decision"
     high{"Residual >= 12 ms or gradual active?"}
+
+    %% vf:element kind="action"
     slip["Every 8 callbacks: discard 1 frame"]
+
+    %% vf:element kind="decision"
     low{"Residual <= 11 ms?"}
+
+    %% vf:element kind="output"
     normal(["Normal operation"])
 
     fill --> silent
-    silent -->|"yes"| suppress --> normal
+    silent -->|"yes"| suppress
+    suppress --> normal
     silent -->|"no"| render
     render --> hard
-    hard -->|"yes"| recenter --> normal
+    hard -->|"yes"| recenter
+    recenter --> normal
     hard -->|"no"| high
     high -->|"no"| normal
     high -->|"yes"| low
     low -->|"yes"| normal
-    low -->|"no"| slip --> normal
+    low -->|"no"| slip
+    slip --> normal
 ```
 
 <!--vf:pseudocode
 node leaudio-router.round4-shell.worker-generation.route-session.pcm-relay-boundary.provisional-positive-drift-guard
 flow positive-drift-guard
 audience human
-purpose "Exact current one-sided control thresholds and correction order."
+purpose "Linear reading companion to the Mermaid flow; ignored by AI context by default."
 -->
 ```text
 ON silent capture packet:
