@@ -73,11 +73,11 @@ text "If post-render residual reaches target + 10 ms, the guard discards the exc
 evidence "guard"
 -->
 
-**Why:** Daily-use validation needs bounded retained fill without prematurely turning a temporary heuristic into the final timing architecture.
+**Why:** Daily-use validation needs bounded retained fill without prematurely turning a temporary heuristic into the final timing architecture. [explain →](./round4-shell.fact.md#timing-is-intentionally-layered)
 
-**What:** Control only positive residual drift around the 10 ms cushion with silence-first, gradual, then emergency correction.
+**What:** Control only positive residual drift around the 10 ms cushion with silence-first, gradual, then emergency correction. [explain →](./round4-shell.fact.md#timing-is-intentionally-layered)
 
-**Outcome:** Ring saturation is mitigated while the algorithm stays an explicitly provisional child of the PCM boundary.
+**Outcome:** Ring saturation is mitigated while the algorithm stays an explicitly provisional child of the PCM boundary. [explain →](./round4-shell.fact.md#timing-is-intentionally-layered)
 
 ```mermaid
 flowchart TD
