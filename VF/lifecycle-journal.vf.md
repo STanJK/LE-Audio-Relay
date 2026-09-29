@@ -53,11 +53,11 @@ evidence "supervisor"
 evidence "shell"
 -->
 
-**Why:** The journal exists for reconstruction after long daily runs, not for real-time audio diagnostics.
+**Why:** The journal exists for reconstruction after long daily runs, not for real-time audio diagnostics. [explain →](./lifecycle-journal.fact.md#why)
 
-**What:** Persist only coarse lifecycle transitions under `%LOCALAPPDATA%/LEAudioRelay/logs`.
+**What:** Persist only coarse lifecycle transitions under `%LOCALAPPDATA%/LEAudioRelay/logs`. [explain →](./lifecycle-journal.fact.md#what)
 
-**Outcome:** Failures can be correlated with reconnect, power, worker, and user actions without making logging part of the audio critical path.
+**Outcome:** Failures can be correlated with reconnect, power, worker, and user actions without making logging part of the audio critical path. [explain →](./lifecycle-journal.fact.md#outcome)
 
 ```text
 APP_START / APP_EXIT
