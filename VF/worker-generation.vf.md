@@ -82,11 +82,11 @@ text "A current generation is replaced when its power revision, restart revision
 evidence "supervisor"
 -->
 
-**Why:** The worker is a disposable user-mode fault/diagnostic boundary, not a second product or an audio microservice topology.
+**Why:** The worker is a disposable user-mode fault/diagnostic boundary, not a second product or an audio microservice topology. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
-**What:** Start one real route generation, prove it reached RUNNING, monitor it, and replace it when stale or failed.
+**What:** Start one real route generation, prove it reached RUNNING, monitor it, and replace it when stale or failed. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
-**Outcome:** The tray survives route replacement and each generation receives fresh process-local threads, handles, COM/WASAPI objects, and managed state.
+**Outcome:** The tray survives route replacement and each generation receives fresh process-local threads, handles, COM/WASAPI objects, and managed state. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
 ```mermaid
 flowchart TD
