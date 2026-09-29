@@ -101,11 +101,11 @@ evidence "capture"
 evidence "render"
 -->
 
-**Why:** The worker needs one owner for all audio objects so a generation can be replaced coherently.
+**Why:** The worker needs one owner for all audio objects so a generation can be replaced coherently. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
-**What:** Resolve policy, build one persistent render + process loopback route, and normalize route-local failure.
+**What:** Resolve policy, build one persistent render + process loopback route, and normalize route-local failure. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
-**Outcome:** Worker RUNNING means the real audio path has started, not merely that a child process exists.
+**Outcome:** Worker RUNNING means the real audio path has started, not merely that a child process exists. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
 ```mermaid
 flowchart TD
