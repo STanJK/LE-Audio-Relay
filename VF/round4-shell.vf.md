@@ -80,11 +80,11 @@ evidence "adr-endpoint"
 evidence "adr-power"
 -->
 
-**Why:** Product lifetime is intentionally more durable than any one audio route generation.
+**Why:** Product lifetime is intentionally more durable than any one audio route generation. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
-**What:** Shell owns interaction, Lifecycle owns observations, Supervision owns route-generation policy, and one worker owns one route generation.
+**What:** Shell owns interaction, Lifecycle owns observations, Supervision owns route-generation policy, and one worker owns one route generation. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
-**Outcome:** Endpoint loss, reconnect, restart, or resume can replace route state without requiring the user to restart the tray application.
+**Outcome:** Endpoint loss, reconnect, restart, or resume can replace route state without requiring the user to restart the tray application. [explain →](./round4-shell.fact.md#two-lifetimes-not-one)
 
 ```mermaid
 flowchart TD
