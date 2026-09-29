@@ -65,11 +65,11 @@ text "WorkerGeneration disposal closes the named pipe before disposing reader, w
 evidence "generation"
 -->
 
-**Why:** A worker process boundary only provides liveness value if the supervisor can always abandon an uncooperative generation.
+**Why:** A worker process boundary only provides liveness value if the supervisor can always abandon an uncooperative generation. [explain →](./round4-shell.fact.md#worker-liveness-is-an-architectural-invariant)
 
-**What:** Bound both the shutdown command and graceful-exit phases, then make forced process termination authoritative.
+**What:** Bound both the shutdown command and graceful-exit phases, then make forced process termination authoritative. [explain →](./round4-shell.fact.md#worker-liveness-is-an-architectural-invariant)
 
-**Outcome:** Abrupt endpoint removal or broken worker IPC cannot permanently pin the supervisor in Running/RestartRequested while the tray UI remains alive.
+**Outcome:** Abrupt endpoint removal or broken worker IPC cannot permanently pin the supervisor in Running/RestartRequested while the tray UI remains alive. [explain →](./round4-shell.fact.md#worker-liveness-is-an-architectural-invariant)
 
 ```mermaid
 flowchart TD
