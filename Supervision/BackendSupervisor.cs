@@ -22,6 +22,9 @@ internal sealed class BackendSupervisor :
     private static readonly TimeSpan WorkerHeartbeatTimeout =
         TimeSpan.FromSeconds(4);
 
+    private static readonly TimeSpan EndpointProbeTimeout =
+        TimeSpan.FromSeconds(2);
+
     private static readonly TimeSpan WorkerShutdownCommandTimeout =
         TimeSpan.FromMilliseconds(500);
 
@@ -63,6 +66,7 @@ internal sealed class BackendSupervisor :
     private Task? _loopTask;
 
     private long _restartRevision;
+    private long _endpointProbeRevision;
     private long _nextBackendGeneration;
     private long? _activeBackendGeneration;
     private string? _lastError;
@@ -122,6 +126,9 @@ internal sealed class BackendSupervisor :
                 snapshot;
         }
 
+        Interlocked.Increment(
+            ref _endpointProbeRevision);
+
         Wake();
     }
 
@@ -153,6 +160,9 @@ internal sealed class BackendSupervisor :
         {
             _restartRevision++;
         }
+
+        Interlocked.Increment(
+            ref _endpointProbeRevision);
 
         _lifecycleLog.Write(
             "MANUAL_RESTART");
@@ -189,6 +199,9 @@ internal sealed class BackendSupervisor :
 
         if (changed)
         {
+            Interlocked.Increment(
+                ref _endpointProbeRevision);
+
             _lifecycleLog.Write(
                 "MODE_CHANGE",
                 $"from={previous}; to={mode}");
@@ -240,8 +253,14 @@ internal sealed class BackendSupervisor :
         AudioEndpointObserver? observer =
             null;
 
-        AudioEndpointProbe? probe =
+        Task<AudioEndpointSnapshot>? endpointProbeTask =
             null;
+
+        long endpointProbeTaskRevision =
+            -1;
+
+        bool endpointProbeTimedOut =
+            false;
 
         string? pendingWorkerFailure =
             null;
@@ -286,8 +305,7 @@ internal sealed class BackendSupervisor :
                     continue;
                 }
 
-                if (observer is null ||
-                    probe is null)
+                if (observer is null)
                 {
                     try
                     {
@@ -296,9 +314,6 @@ internal sealed class BackendSupervisor :
 
                         observer.TopologyChanged +=
                             OnEndpointTopologyChanged;
-
-                        probe =
-                            new AudioEndpointProbe();
 
                         consecutiveFailures =
                             0;
@@ -316,9 +331,6 @@ internal sealed class BackendSupervisor :
                             observer.Dispose();
                             observer = null;
                         }
-
-                        probe?.Dispose();
-                        probe = null;
 
                         consecutiveFailures++;
 
@@ -342,18 +354,108 @@ internal sealed class BackendSupervisor :
 
                 AudioEndpointSnapshot reality;
 
+                long currentProbeRevision =
+                    Volatile.Read(
+                        ref _endpointProbeRevision);
+
+                if (endpointProbeTask is null ||
+                    (endpointProbeTimedOut &&
+                     endpointProbeTaskRevision !=
+                        currentProbeRevision))
+                {
+                    if (endpointProbeTask is not null)
+                    {
+                        ObserveAbandonedEndpointProbe(
+                            endpointProbeTask);
+                    }
+
+                    endpointProbeTask =
+                        StartEndpointProbeTask(
+                            desired.Configuration.DestinationMatch);
+
+                    endpointProbeTaskRevision =
+                        currentProbeRevision;
+
+                    endpointProbeTimedOut =
+                        false;
+                }
+
                 try
                 {
                     reality =
-                        probe.Probe(
-                            desired.Configuration.DestinationMatch);
+                        await endpointProbeTask.WaitAsync(
+                            EndpointProbeTimeout,
+                            cancellationToken);
+
+                    endpointProbeTask =
+                        null;
+
+                    endpointProbeTimedOut =
+                        false;
 
                     LogEndpointTransition(
                         reality,
                         ref lastEndpointLogKey);
                 }
+                catch (TimeoutException)
+                {
+                    bool firstTimeout =
+                        !endpointProbeTimedOut;
+
+                    endpointProbeTimedOut =
+                        true;
+
+                    consecutiveFailures++;
+
+                    SetLastError(
+                        "Endpoint probe timed out while Windows audio topology is rebuilding.");
+
+                    PublishState(
+                        SupervisorState.RecoveringFault);
+
+                    if (firstTimeout)
+                    {
+                        _lifecycleLog.Write(
+                            "ENDPOINT_PROBE_TIMEOUT",
+                            $"probeRevision={endpointProbeTaskRevision}");
+                    }
+
+                    if (active is not null)
+                    {
+                        _lifecycleLog.Write(
+                            "WORKER_STOP",
+                            $"generation={active.Generation}; reason=endpoint_probe_timeout");
+
+                        await StopGenerationAsync(
+                            active,
+                            cancellationToken);
+
+                        active = null;
+
+                        SetActiveGeneration(
+                            null);
+                    }
+
+                    await WaitForWakeOrDelayAsync(
+                        GetRecoveryDelay(
+                            consecutiveFailures),
+                        cancellationToken);
+
+                    continue;
+                }
+                catch (OperationCanceledException)
+                    when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
                 catch (Exception ex)
                 {
+                    endpointProbeTask =
+                        null;
+
+                    endpointProbeTimedOut =
+                        false;
+
                     consecutiveFailures++;
 
                     SetLastError(
@@ -364,34 +466,24 @@ internal sealed class BackendSupervisor :
 
                     if (active is not null)
                     {
-                        bool workerCompleted =
-                            await WaitForWorkerWakeOrDelayAsync(
-                                active,
-                                GetRecoveryDelay(
-                                    consecutiveFailures),
-                                cancellationToken);
+                        _lifecycleLog.Write(
+                            "WORKER_STOP",
+                            $"generation={active.Generation}; reason=endpoint_probe_failed");
 
-                        if (workerCompleted)
-                        {
-                            pendingWorkerFailure =
-                                await CollectWorkerCompletionAsync(
-                                    active);
-
-                            await active.DisposeAsync();
-
-                            active = null;
-
-                            SetActiveGeneration(
-                                null);
-                        }
-                    }
-                    else
-                    {
-                        await WaitForWakeOrDelayAsync(
-                            GetRecoveryDelay(
-                                consecutiveFailures),
+                        await StopGenerationAsync(
+                            active,
                             cancellationToken);
+
+                        active = null;
+
+                        SetActiveGeneration(
+                            null);
                     }
+
+                    await WaitForWakeOrDelayAsync(
+                        GetRecoveryDelay(
+                            consecutiveFailures),
+                        cancellationToken);
 
                     continue;
                 }
@@ -642,7 +734,11 @@ internal sealed class BackendSupervisor :
                 observer.Dispose();
             }
 
-            probe?.Dispose();
+            if (endpointProbeTask is not null)
+            {
+                ObserveAbandonedEndpointProbe(
+                    endpointProbeTask);
+            }
         }
     }
 
@@ -652,7 +748,10 @@ internal sealed class BackendSupervisor :
     {
         // NAudio is configured to deliver this callback on the Windows
         // Core Audio worker thread. Never enumerate endpoints or run policy
-        // here; only wake the supervisor.
+        // here; only invalidate any timed-out probe and wake supervision.
+        Interlocked.Increment(
+            ref _endpointProbeRevision);
+
         Wake();
     }
 
@@ -965,6 +1064,40 @@ internal sealed class BackendSupervisor :
         }
 
         return null;
+    }
+
+    private static Task<AudioEndpointSnapshot>
+        StartEndpointProbeTask(
+            string destinationMatch)
+    {
+        return Task.Factory.StartNew(
+            () =>
+            {
+                using var probe =
+                    new AudioEndpointProbe();
+
+                return probe.Probe(
+                    destinationMatch);
+            },
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
+    }
+
+    private static void ObserveAbandonedEndpointProbe(
+        Task<AudioEndpointSnapshot> task)
+    {
+        _ =
+            task.ContinueWith(
+                completed =>
+                {
+                    _ =
+                        completed.Exception;
+                },
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted |
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
     }
 
     private static async Task<WorkerEnvelope>
