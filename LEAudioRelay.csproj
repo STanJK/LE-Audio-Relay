@@ -7,26 +7,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <PlatformTarget>x64</PlatformTarget>
-
     <AssemblyName>LEAudioRelay</AssemblyName>
     <RootNamespace>LEAudioRelay</RootNamespace>
-
-    <!-- Main tracks the next V0.21 development baseline. -->
     <Version>0.21.0-dev</Version>
     <AssemblyVersion>0.21.0.0</AssemblyVersion>
     <FileVersion>0.21.0.0</FileVersion>
     <InformationalVersion>V0.21+main-dev</InformationalVersion>
     <Product>LE Audio Relay</Product>
     <Description>Windows Bluetooth LE Audio keepalive relay and supervised route host.</Description>
-
-    <!--
-      Round4 is a clean rewrite. Disable the SDK's recursive **/*.cs glob so
-      frozen Legacy source (and Legacy build artifacts) can never enter the
-      canonical application build graph accidentally.
-    -->
     <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Host\**\*.cs" />
@@ -38,10 +28,9 @@
     <Compile Include="Timing\**\*.cs" />
     <Compile Include="Telemetry\**\*.cs" />
     <Compile Include="Cli\**\*.cs" />
+    <Compile Include="DSP\**\*.cs" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="NAudio.Wasapi" Version="3.0.1" />
   </ItemGroup>
-
 </Project>
