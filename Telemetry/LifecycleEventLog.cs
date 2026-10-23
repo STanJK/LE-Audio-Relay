@@ -19,7 +19,7 @@ internal sealed class LifecycleEventLog
     public LifecycleEventLog()
     {
         _directory =
-            Settings.UserDataPaths.Logs;
+            UserDataPaths.Logs;
     }
 
     public string DirectoryPath =>
