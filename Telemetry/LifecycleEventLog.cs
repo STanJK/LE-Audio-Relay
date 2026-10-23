@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using LEAudioRelay.Settings;
 
 namespace LEAudioRelay.Telemetry;
 
@@ -18,11 +19,7 @@ internal sealed class LifecycleEventLog
     public LifecycleEventLog()
     {
         _directory =
-            Path.Combine(
-                Environment.GetFolderPath(
-                    Environment.SpecialFolder.LocalApplicationData),
-                "LEAudioRelay",
-                "logs");
+            Settings.UserDataPaths.Logs;
     }
 
     public string DirectoryPath =>

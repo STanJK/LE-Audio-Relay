@@ -6,7 +6,7 @@ The journal exists for reconstruction after long daily runs, not for real-time a
 
 ## What
 
-Persist only coarse lifecycle transitions under `%LOCALAPPDATA%/LEAudioRelay/logs`.
+Persist only coarse lifecycle transitions under `%LOCALAPPDATA%/LEAudioLab/LEAudioRelay/logs`.
 
 ## Outcome
 

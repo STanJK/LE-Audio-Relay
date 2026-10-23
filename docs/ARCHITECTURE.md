@@ -239,7 +239,7 @@ route generation lifetime
 A low-volume journal is written to:
 
 ```text
-%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
+%LOCALAPPDATA%\LEAudioLab\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
 ```
 
 Recorded events are restricted to lifecycle transitions such as:

@@ -466,7 +466,7 @@ Persistent lifecycle logs are intentionally low-volume.
 Path:
 
 ```text
-%LOCALAPPDATA%\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
+%LOCALAPPDATA%\LEAudioLab\LEAudioRelay\logs\lifecycle-YYYY-MM-DD.log
 ```
 
 Recorded:
